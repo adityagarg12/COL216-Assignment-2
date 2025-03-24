@@ -220,6 +220,10 @@ void Processor::decodeStage() {
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
             id_ex.control.ALUSrc = 0; // ALU uses register
+            id_ex.control.MemToReg = 0; // Write ALU result to reg
+            id_ex.control.MemRead = 0;
+            id_ex.control.MemWrite = 0;
+            id_ex.control.Branch = 0;
             break;
 
         case 0x13:  // I-Type (ADDI, ANDI, ORI)
@@ -234,6 +238,10 @@ void Processor::decodeStage() {
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  
             id_ex.control.ALUSrc = 1; // ALU uses immediate
+            id_ex.control.MemToReg = 0; // Write ALU result to reg
+            id_ex.control.MemRead = 0;
+            id_ex.control.MemWrite = 0;
+            id_ex.control.Branch = 0;
             break;
 
         case 0x03:  // Load (LW)
@@ -249,6 +257,9 @@ void Processor::decodeStage() {
             id_ex.control.ALUSrc = 1;
             id_ex.control.MemRead = 1;
             id_ex.control.MemToReg = 1; // Write MEM data to reg
+            id_ex.control.MemWrite = 0;
+            id_ex.control.Branch = 0;
+
             break;
 
         case 0x23:  // Store (SW)
@@ -262,6 +273,11 @@ void Processor::decodeStage() {
             id_ex.control.ALUOp = 0;
             id_ex.control.ALUSrc = 1;
             id_ex.control.MemWrite = 1;
+            id_ex.control.MemRead = 0;
+            id_ex.control.MemToReg = 0;
+            id_ex.control.RegWrite = 0;
+            id_ex.control.Branch = 0;
+
             break;
 
         case 0x63:  // Branch (BEQ, BNE)
@@ -275,6 +291,10 @@ void Processor::decodeStage() {
             id_ex.control.Branch = 1;
             id_ex.control.ALUOp = 1; // Branch ALU operation
             id_ex.control.ALUSrc = 0;
+            id_ex.control.MemWrite = 0;
+            id_ex.control.MemRead = 0;
+            id_ex.control.MemToReg = 0;
+            id_ex.control.RegWrite = 0;
             int zero = alu.execute(regFile.read(id_ex.rs1), regFile.read(id_ex.rs2), 6);
             uint64_t shiftedImm = (uint64_t)id_ex.imm << 1;
             if (zero == 0) {
