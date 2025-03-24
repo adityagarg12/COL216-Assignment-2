@@ -26,12 +26,19 @@ public:
             case '-': return op1 - op2;
             case '&': return op1 & op2;
             case '|': return op1 | op2;
+
             default: return 0;
         }
     }
 };
 
 // ****************** PIPELINE REGISTERS ******************
+
+// struct PC {
+//     int pc = 0;
+// };
+
+
 struct IF_ID {
     uint32_t instruction = 0;
     int pc = 0;
@@ -41,7 +48,7 @@ struct ID_EX {
     uint32_t instruction = 0;
     int pc = 0;
     int rs1 = 0, rs2 = 0, rd = 0;
-    int imm = 0;
+    int64_t imm = 0;
     int controlSignals = 0;
 };
 
@@ -85,6 +92,89 @@ public:
     void runSimulation(int cycles);
 };
 
+struct DecodedInstruction {
+    uint32_t opcode;
+    uint32_t rd;
+    uint32_t funct3;
+    uint32_t rs1;
+    uint32_t rs2;
+    uint32_t funct7;
+    int64_t imm;  // Signed immediate
+};
+
+DecodedInstruction decodeRType(uint32_t instruction) {
+    DecodedInstruction decoded;
+    decoded.opcode = instruction & 0x7F;
+    decoded.rd = (instruction >> 7) & 0x1F;
+    decoded.funct3 = (instruction >> 12) & 0x07;
+    decoded.rs1 = (instruction >> 15) & 0x1F;
+    decoded.rs2 = (instruction >> 20) & 0x1F;
+    decoded.funct7 = (instruction >> 25) & 0x7F;
+    return decoded;
+}
+
+DecodedInstruction decodeIType(uint32_t instruction) {
+    DecodedInstruction decoded;
+    decoded.opcode = instruction & 0x7F;
+    decoded.rd = (instruction >> 7) & 0x1F;
+    decoded.funct3 = (instruction >> 12) & 0x07;
+    decoded.rs1 = (instruction >> 15) & 0x1F;
+    // Sign-extend 12-bit immediate
+    decoded.imm = ((int64_t)(instruction & 0xFFF00000)) >> 20;
+    return decoded;
+}
+
+DecodedInstruction decodeSType(uint32_t instruction) {
+    DecodedInstruction decoded;
+    decoded.opcode = instruction & 0x7F;
+    decoded.funct3 = (instruction >> 12) & 0x07;
+    decoded.rs1 = (instruction >> 15) & 0x1F;
+    decoded.rs2 = (instruction >> 20) & 0x1F;
+    // Combine imm[11:5] and imm[4:0]
+    decoded.imm = ((int64_t)(instruction & 0xFE000000) >> 20) | ((instruction >> 7) & 0x1F);
+    return decoded;
+}
+
+DecodedInstruction decodeBType(uint32_t instruction) {
+    DecodedInstruction decoded;
+    decoded.opcode = instruction & 0x7F;
+    decoded.funct3 = (instruction >> 12) & 0x07;
+    decoded.rs1 = (instruction >> 15) & 0x1F;
+    decoded.rs2 = (instruction >> 20) & 0x1F;
+    // Sign-extend immediate and arrange bits properly
+    decoded.imm = (((int64_t)(instruction >> 31) & 1) << 12) |  // imm[12]
+                  (((int64_t)(instruction >> 25) & 0x3F) << 5) | // imm[10:5]
+                  (((int64_t)(instruction >> 8) & 0xF) << 1) |   // imm[4:1]
+                  (((int64_t)(instruction >> 7) & 1) << 11);     // imm[11]
+    // Sign-extend the immediate value
+    decoded.imm = (decoded.imm << 51) >> 51;
+    return decoded;
+}
+
+DecodedInstruction decodeJType(uint32_t instruction) {
+    DecodedInstruction decoded;
+    decoded.opcode = instruction & 0x7F;
+    decoded.rd = (instruction >> 7) & 0x1F;
+    // Sign-extend and reorder immediate bits
+    decoded.imm = (((instruction >> 31) & 1) << 20) |
+                  (((instruction >> 21) & 0x3FF) << 1) |
+                  (((instruction >> 20) & 1) << 11) |
+                  (((instruction >> 12) & 0xFF) << 12);
+    return decoded;
+}
+
+DecodedInstruction decodeInstruction(uint32_t instruction) {
+    uint32_t opcode = instruction & 0x7F;
+    
+    if (opcode == 0x33) return decodeRType(instruction); // R-Type
+    if (opcode == 0x13 || opcode == 0x03) return decodeIType(instruction); // I-Type (ADDI, LOAD)
+    if (opcode == 0x23) return decodeSType(instruction); // S-Type (Store)
+    if (opcode == 0x63) return decodeBType(instruction); // B-Type (Branch)
+    if (opcode == 0x6F) return decodeJType(instruction); // J-Type (JAL)
+
+    return {}; // Return empty struct if unknown instruction
+}
+
 // ****************** FUNCTION DEFINITIONS ******************
 
 void Processor::fetchStage() {
@@ -92,12 +182,16 @@ void Processor::fetchStage() {
     if_id.pc += 4;
 }
 
-void Processor::decodeStage() {
+void Processor::decodeStage() { 
     uint32_t inst = if_id.instruction;
+    struct DecodedInstruction decodedInst = decodeInstruction(inst);
     id_ex.rs1 = (inst >> 15) & 0x1F;
     id_ex.rs2 = (inst >> 20) & 0x1F;
-    id_ex.rd  = (inst >> 7) & 0x1F;
-    id_ex.imm = (inst >> 20); // Simplified for immediate values
+    id_ex.rd  = (inst >> 7) & 0x1F; 
+    id_ex.imm = decodedInst.imm; // Simplified for immediate values
+    id_ex.controlSignals = 0; // Simplified for control signals
+    id_ex.instruction = inst;
+    id_ex.pc = if_id.pc;
 }
 
 void Processor::memoryStage() {
