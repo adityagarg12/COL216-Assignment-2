@@ -55,7 +55,8 @@ struct ID_EX {
 struct EX_MEM {
     int aluResult = 0;
     int rd = 0;
-    
+    int rs2 = 0;
+    bool zero = false;
     ControlSignals control;
 };
 
@@ -295,12 +296,24 @@ void Processor::decodeStage() {
             id_ex.control.MemRead = 0;
             id_ex.control.MemToReg = 0;
             id_ex.control.RegWrite = 0;
-            int zero = alu.execute(regFile.read(id_ex.rs1), regFile.read(id_ex.rs2), 6);
-            uint64_t shiftedImm = (uint64_t)id_ex.imm << 1;
-            if (zero == 0) {
-                if_id.pc = if_id.pc - 4 + shiftedImm;
-            }
-
+            // int zero = alu.execute(regFile.read(id_ex.rs1), regFile.read(id_ex.rs2), 6);
+            // uint64_t shiftedImm = (uint64_t)id_ex.imm << 1;
+            // if (zero == 0) {
+            //     if_id.pc = if_id.pc - 4 + shiftedImm;
+            // }
+            break;
+        case 0x6F:  // Jump (JAL)  
+            id_ex.rd = decodedInst.rd;
+            id_ex.imm = decodedInst.imm;
+            id_ex.opcode = opcode;
+            id_ex.pc = if_id.pc; // TO BE CHECKED
+            id_ex.control.RegWrite = 1;
+            id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+            id_ex.control.ALUSrc = 0; // ALU uses register
+            id_ex.control.MemToReg = 0; // Write ALU result to reg
+            id_ex.control.MemRead = 0;
+            id_ex.control.MemWrite = 0;
+            id_ex.control.Branch = 0;
 
             break;
 
@@ -326,7 +339,7 @@ void Processor::memoryStage() {
 
 void Processor::writeBackStage() {
     if (mem_wb.regWrite) {
-        if (mem_wb.control.MemToReg) { // TO BE CHANGED TO CONTROL SIGNAL 
+        if (mem_wb.control.MemToReg) { 
             regFile.write(mem_wb.rd, mem_wb.memData);
         }
         else {
