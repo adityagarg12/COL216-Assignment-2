@@ -1,5 +1,5 @@
-#ifndef PROCESSOR_HPP
-#define PROCESSOR_HPP
+#ifndef PROCESSOR_FORWARDING_HPP
+#define PROCESSOR_FORWARDING_HPP
 
 #include <iostream>
 #include <vector>

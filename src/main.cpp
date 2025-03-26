@@ -1,4 +1,5 @@
 #include "processor.hpp"
+#include "processor_forwarding.hpp"
 #include "noforwarding.hpp"
 #include "forwarding.hpp"
 

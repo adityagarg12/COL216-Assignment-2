@@ -13,6 +13,7 @@ public:
                 id_ex.nop = 0;
                 id_ex.nop_count = 0;
                 id_ex = ID_EX{};
+                stall = false;
                 return;
             }
             id_ex.nop_count++;
