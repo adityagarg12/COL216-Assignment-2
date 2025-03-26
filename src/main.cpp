@@ -7,7 +7,8 @@ int main(int argc, char* argv[]) {
         0x00000293,  // addi x5, x0, 0
         0x00a28333,  // add x6, x5, x10
         0x00030303,  // lb x6, 0(x6)
-        0x00030663   // beq x6, x0, 12
+        0x00030663,   // beq x6, x0, 12
+        0x00128293     //addi x5 x5 1
     };
 
     NoForwardingProcessor noForwardProc(instructions);
@@ -20,5 +21,5 @@ int main(int argc, char* argv[]) {
     // forwardProc.runSimulation(10);
 
     return 0;
-    
+
 }

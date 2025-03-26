@@ -119,6 +119,7 @@ protected:
     int numInstructions = 0;
 
     bool start = true;
+    bool if_done = false;
     
 public:
     Processor(std::vector<uint32_t> instructions) { memory = instructions;
@@ -226,7 +227,9 @@ DecodedInstruction decodeInstruction(uint32_t instruction) {
 // ****************** FUNCTION DEFINITIONS ******************
 
 void Processor::fetchStage(int cycles, std::vector<std::vector<std::string>> &vec) {
-   
+    if (if_done == true) {
+        return;
+    }
     if (stallIF){
         if (stallID == false) {          
             stallIF = false;
@@ -240,7 +243,7 @@ void Processor::fetchStage(int cycles, std::vector<std::vector<std::string>> &ve
         if ((if_id.pc/4 + 1)  < numInstructions) if_id.pc +=4;
         else {
             if_id = IF_ID{};
-            
+            if_done = true;
             return;        
         }
     }
@@ -479,7 +482,7 @@ void Processor::writeBackStage(int cycles,std::vector<std::vector<std::string>> 
             regFile.write(mem_wb.rd, mem_wb.aluResult);
         }
     }
-    if (((mem_wb.pc+4)/4)< numInstructions){
+    if (((mem_wb.pc)/4)< numInstructions){
     vec[(mem_wb.pc)/4][cycles] = "WB";
     }
     mem_wb.perform = false;
