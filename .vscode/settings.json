@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "*.sln": "csharp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "vector": "cpp"
     }
 }

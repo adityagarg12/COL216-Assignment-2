@@ -86,6 +86,17 @@ struct MEM_WB {
     ControlSignals control;
     bool perform = true;
 };
+//********************************************* */
+int NumInstruction(std::vector<uint32_t> instructions){
+    int count = 0;
+    for (int i = 0; i < instructions.size(); i++){
+        if (instructions[i] != 0){
+            count++;
+        }
+    }
+    return count;
+}
+
 
 // ****************** PROCESSOR BASE CLASS ******************
 class Processor {
@@ -105,18 +116,23 @@ protected:
     IF_ID stalled_if_id; // Stalled instruction
     bool stallIF = false;
     bool stallID = false;
+    int numInstructions = 0;
+
+    bool start = true;
     
 public:
-    Processor(std::vector<uint32_t> instructions) { memory = instructions; }
+    Processor(std::vector<uint32_t> instructions) { memory = instructions;
+        numInstructions = NumInstruction(instructions);
+    }
 
     // Virtual functions to be implemented differently for no-forwarding and forwarding
-    virtual void executeStage() = 0;
+    virtual void executeStage(int cycles,std::vector<std::vector<std::string>> &vec) = 0;
 
     // Common functions
-    void fetchStage();
-    void decodeStage();
-    void memoryStage();
-    void writeBackStage();
+    void fetchStage(int cycles,std::vector<std::vector<std::string>> &vec);
+    void decodeStage(int cycles,std::vector<std::vector<std::string>> &vec);
+    void memoryStage(int cycles,std::vector<std::vector<std::string>> &vec);
+    void writeBackStage(int cycles,std::vector<std::vector<std::string>> &vec);
     void runSimulation(int cycles);
 };
 
@@ -209,18 +225,25 @@ DecodedInstruction decodeInstruction(uint32_t instruction) {
 
 // ****************** FUNCTION DEFINITIONS ******************
 
-void Processor::fetchStage() {
+void Processor::fetchStage(int cycles, std::vector<std::vector<std::string>> &vec) {
+    
     if (stallIF){
         if (stallID == false) {          
             stallIF = false;
         }
+        if(if_id.pc/4 -1 < numInstructions){
+        vec[if_id.pc/4 - 1][cycles] = " - ";
+        }
         return;
     }
     if_id.instruction = memory[if_id.pc / 4];
+    if(if_id.pc/4 < numInstructions){
+    vec[if_id.pc/4][cycles] = "IF";
+    }
     if_id.pc += 4;
 }
 
-void Processor::decodeStage() {
+void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &vec) {
     if (stallID) {
         // During stall, insert NOP into ID/EX
         // id_ex = ID_EX{}; // NOP
@@ -233,6 +256,9 @@ void Processor::decodeStage() {
             stallID = false;
         }
         stallIF = true; // Keep IF stalled while ID is occupied
+        if (id_ex.pc/4 < numInstructions){
+        vec[id_ex.pc/4][cycles]=" - ";
+        }
         return;
     }
 
@@ -272,7 +298,10 @@ void Processor::decodeStage() {
         // return;
     }
     id_ex = ID_EX{}; // Clear previous values
-
+    id_ex.pc = if_id.pc -4;
+    if ((id_ex.pc/4 + 1>= numInstructions) && (id_ex.pc/4 < numInstructions)){
+    vec[id_ex.pc/4][cycles] = "ID";
+    }
     switch (opcode) {
         case 0x33:  // R-Type (ADD, SUB, AND, OR)
             id_ex.rs1 = decodedInst.rs1;
@@ -282,7 +311,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
-            id_ex.pc = if_id.pc -4 ; // TO BE CHECKED         
+             // TO BE CHECKED         
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
             id_ex.control.ALUSrc = 0; // ALU uses register
@@ -303,7 +332,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
-            id_ex.pc = if_id.pc -4; // TO BE CHECKED
+             // TO BE CHECKED
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  
             id_ex.control.ALUSrc = 1; // ALU uses immediate
@@ -320,7 +349,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
-            id_ex.pc = if_id.pc -4; // TO BE CHECKED
+             // TO BE CHECKED
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 0;  // ADD for memory address calculation
             id_ex.control.ALUSrc = 1;
@@ -338,7 +367,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;  
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;     
-            id_ex.pc = if_id.pc -4; // TO BE CHECKED
+             // TO BE CHECKED
             id_ex.control.ALUOp = 0;
             id_ex.control.ALUSrc = 1;
             id_ex.control.MemWrite = 1;
@@ -356,7 +385,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;  
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;   
-            id_ex.pc = if_id.pc -4; // TO BE CHECKED
+             // TO BE CHECKED
             id_ex.control.Branch = 1;
             id_ex.control.ALUOp = 1; // Branch ALU operation
             id_ex.control.ALUSrc = 0;
@@ -374,7 +403,7 @@ void Processor::decodeStage() {
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
             id_ex.opcode = opcode;
-            id_ex.pc = if_id.pc -4; // TO BE CHECKED
+             // TO BE CHECKED
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
             id_ex.control.ALUSrc = 0; // ALU uses register
@@ -392,7 +421,7 @@ void Processor::decodeStage() {
 }
 
 
-void Processor::memoryStage() {
+void Processor::memoryStage(int cycles,std::vector<std::vector<std::string>> &vec) {
     if (ex_mem.perform == false) {
         return;
     }
@@ -408,10 +437,13 @@ void Processor::memoryStage() {
     mem_wb.rd = ex_mem.rd;
     mem_wb.pc = ex_mem.pc;
     mem_wb.control = ex_mem.control;
+    if (mem_wb.pc/4 + 1>= numInstructions && mem_wb.pc/4 < numInstructions){
+    vec[mem_wb.pc/4][cycles]="MEM";
+    }
     ex_mem.perform = false; // TO BE CHECKED
 }
 
-void Processor::writeBackStage() {
+void Processor::writeBackStage(int cycles,std::vector<std::vector<std::string>> &vec) {
     if (mem_wb.regWrite) {
         if (mem_wb.control.MemToReg) { 
             regFile.write(mem_wb.rd, mem_wb.memData);
@@ -420,9 +452,31 @@ void Processor::writeBackStage() {
             regFile.write(mem_wb.rd, mem_wb.aluResult);
         }
     }
+    if (((mem_wb.pc+4)/4)< numInstructions){
+    vec[(mem_wb.pc+4)/4][cycles] = "WB";
+    }
+    
 }
 
+void printPipelineDiagram(const std::vector<std::vector<std::string>> &vec) {
+    std::cout << "Pipeline Execution:\n";
+
+    // Iterate over each instruction (row-wise)
+    for (const auto &row : vec) {
+        // Iterate over each cycle (column-wise)
+        for (const auto &stage : row) {
+            std::cout << stage << " ";  // Print each stage in a cycle
+        }
+        std::cout << "\n";  // New line for next instruction
+    }
+}
+
+
+
 void Processor::runSimulation(int cycles) {
+
+    std::vector<std::vector<std::string>> vec(numInstructions, std::vector<std::string>(cycles, "  "));
+
     for (int i = 0; i < cycles; i++) {
         std::cout << "Cycle " << i << ":\n";
         std::cout << "IF: PC=" << if_id.pc << ", Instr=" << std::hex << if_id.instruction << "\n";
@@ -432,13 +486,20 @@ void Processor::runSimulation(int cycles) {
         std::cout << "WB: rd=" << mem_wb.rd << ", value=" << (mem_wb.control.MemToReg ? mem_wb.memData : mem_wb.aluResult) << "\n";
         if (stall) std::cout << "Stall: " << stallCycles << " cycles remaining\n";
         std::cout << "\n";
+       
 
-        writeBackStage();
-        memoryStage();
-        executeStage();
-        decodeStage();
-        fetchStage();
+        writeBackStage(i,vec);
+        memoryStage(i,vec);
+        executeStage(i,vec);
+        decodeStage(i,vec);
+
+        fetchStage(i,vec);
+
+       
     }
+
+    printPipelineDiagram(vec);
+
 }
 
 #endif // PROCESSOR_HPP

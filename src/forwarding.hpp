@@ -4,7 +4,7 @@ class ForwardingProcessor : public Processor {
 public:
     using Processor::Processor;
 
-    void executeStage() override {
+    void executeStage(int cycle,std::vector<std::vector<std::string>> &vec) override {
         int op1 = regFile.read(id_ex.rs1);
         int op2 = id_ex.control.ALUSrc ? id_ex.imm : regFile.read(id_ex.rs2);
 

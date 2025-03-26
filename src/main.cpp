@@ -14,10 +14,11 @@ int main(int argc, char* argv[]) {
     // ForwardingProcessor forwardProc(instructions);
 
     std::cout << "Running No Forwarding Processor:\n";
-    noForwardProc.runSimulation(10);
+    noForwardProc.runSimulation(15);
 
     // std::cout << "\nRunning Forwarding Processor:\n";
     // forwardProc.runSimulation(10);
 
     return 0;
+    
 }

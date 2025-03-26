@@ -5,7 +5,7 @@ class NoForwardingProcessor : public Processor {
 public:
     using Processor::Processor;
 
-    void executeStage() override {
+    void executeStage(int cycle,std::vector<std::vector<std::string>> &vec) override {
         if (stall) {
             // ex_mem = EX_MEM{}; // NOP
             stallCycles--;
@@ -67,6 +67,9 @@ public:
         ex_mem.rs2 = id_ex.rs2;
         ex_mem.control = id_ex.control; 
         ex_mem.pc = id_ex.pc;
+        if (ex_mem.pc/4 + 1>= numInstructions && ex_mem.pc/4 < numInstructions){
+        vec[ex_mem.pc/4][cycle]= "EX";
+        }
         ex_mem.perform = true; // TO BE CHECKED
     }
 };
