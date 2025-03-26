@@ -1,7 +1,7 @@
-#include "processor.hpp"
-// #include "processor_forwarding.hpp"
-#include "noforwarding.hpp"
-// #include "forwarding.hpp"
+// #include "processor.hpp"
+#include "processor_forwarding.hpp"
+// #include "noforwarding.hpp"
+#include "forwarding.hpp"
 
 int main(int argc, char* argv[]) {
     std::vector<uint32_t> instructions = {
@@ -28,14 +28,14 @@ int main(int argc, char* argv[]) {
 
     
 
-    NoForwardingProcessor noForwardProc(instructions);
-    // ForwardingProcessor forwardProc(instructions);
+    // NoForwardingProcessor noForwardProc(instructions);
+    ForwardingProcessor forwardProc(instructions);
 
-    std::cout << "Running No Forwarding Processor:\n";
-    noForwardProc.runSimulation(25);
+    // std::cout << "Running No Forwarding Processor:\n";
+    // noForwardProc.runSimulation(25);
 
-    // std::cout << "\nRunning Forwarding Processor:\n";
-    // forwardProc.runSimulation(15);
+    std::cout << "\nRunning Forwarding Processor:\n";
+    forwardProc.runSimulation(15);
 
     return 0;
 

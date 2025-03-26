@@ -1,3 +1,4 @@
+
 #include "processor_forwarding.hpp"
 
 class ForwardingProcessor : public Processor {
@@ -5,14 +6,47 @@ public:
     using Processor::Processor;
 
     void executeStage(int cycle,std::vector<std::vector<std::string>> &vec) override {
-        int op1 = regFile.read(id_ex.rs1);
+
+        if (id_ex.nop > 0) {
+            
+            if (id_ex.nop_count == id_ex.nop) {
+                id_ex.nop = 0;
+                id_ex.nop_count = 0;
+                id_ex = ID_EX{};
+                stall = false;
+                return;
+            }
+            id_ex.nop_count++;
+        }
+
+
+        if (stall) {
+            // ex_mem = EX_MEM{}; // NOP
+            stallCycles--;
+            if (stallCycles <= 0) {
+                stall = false;
+                
+            }
+            stallID = true; // Keep ID stalled while EX is occupied
+            return;
+            
+        }
+
+
+        if(ex_mem.pc/4 + 1 >= numInstructions){
+            ex_mem = EX_MEM{};
+            return;
+        }
+
+        if(id_ex.perform == false){
+            return;
+        }
+
+        int op1 = id_ex.opcode==0x6F ? id_ex.pc : regFile.read(id_ex.rs1);
         int op2 = id_ex.control.ALUSrc ? id_ex.imm : regFile.read(id_ex.rs2);
 
         
-        // Forwarding logic
-        if (ex_mem.control.RegWrite && ex_mem.rd == id_ex.rs1) op1 = ex_mem.aluResult;
-        if (ex_mem.control.RegWrite && ex_mem.rd == id_ex.rs2) op2 = ex_mem.aluResult;
-
+        
         int ALUCtrl = 0;
         if (id_ex.opcode == 0x03) {  
             ALUCtrl = 2;  // Load
@@ -40,21 +74,39 @@ public:
             }
         
         }
-         
-        ex_mem.aluResult = alu.execute(op1, op2, ALUCtrl);
-        ex_mem.zero = ex_mem.aluResult == 0;
-        if (id_ex.control.Branch) {
-            bool taken = (id_ex.funct3 == 0x0 && ex_mem.aluResult == 0) || // BEQ
-                         (id_ex.funct3 == 0x1 && ex_mem.aluResult != 0);   // BNE
-            if (taken) {
-                if_id.pc = id_ex.pc - 4 + (id_ex.imm << 1);
-                if_id.instruction = 0; // Flush IF/ID with NOP
-            }
+        else if (id_ex.opcode == 0x6F){
+            ALUCtrl = 2; // JAL
+            ex_mem.jump = id_ex.pc + id_ex.imm;
         }
-    //    ex_mem.zero = ex_mem.aluResult == 0;
+        else if (id_ex.opcode == 0x67){
+            ALUCtrl = 2; // JALR
+            ex_mem.jump = (regFile.read(id_ex.rs1) + op2) & ~1;
+        }
+        
+        ex_mem.aluResult = alu.execute(op1, op2, ALUCtrl);
+        if (id_ex.opcode == 0x67 || id_ex.opcode == 0x6F){
+            ex_mem.aluResult = id_ex.pc + 4;
+        }
+        ex_mem.zero = ex_mem.aluResult == 0;
+        // if (id_ex.control.Branch) {
+        //     bool taken = (id_ex.funct3 == 0x0 && ex_mem.aluResult == 0) || // BEQ
+        //                  (id_ex.funct3 == 0x1 && ex_mem.aluResult != 0);   // BNE
+        //     if (taken) {
+        //         if_id.pc = id_ex.pc + (id_ex.imm << 1);
+        //         if_id.instruction = 0; // Flush IF/ID with NOP
+        //         stall = false;
+        //         stallIF = false; // Clear stalls
+        //     }
+        // }
         ex_mem.rd = id_ex.rd;
         ex_mem.rs2 = id_ex.rs2;
-        ex_mem.control = id_ex.control; // Pass control signals forward
-
+        ex_mem.opcode = id_ex.opcode;
+        ex_mem.control = id_ex.control; 
+        ex_mem.pc = id_ex.pc;
+        if (ex_mem.pc/4 >= 0 && ex_mem.pc/4 < numInstructions){
+        vec[ex_mem.pc/4][cycle]= "EX";
+        }
+        id_ex.perform = false;
+        ex_mem.perform = true; // TO BE CHECKED
     }
 };

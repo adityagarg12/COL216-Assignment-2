@@ -79,6 +79,7 @@ struct EX_MEM {
     int rs2 = 0;
     int pc = 0;
     bool zero = false;
+    uint32_t opcode = 0;
     ControlSignals control;
     bool perform = false;
     uint64_t jump = -1;
@@ -285,7 +286,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             if_id = IF_ID{};
             stallID = false;
             return;
-        }
+        }   
         if_id.nop_count++;
     }
 
@@ -332,16 +333,16 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
     // }
     // Check EX/MEM
     if (ex_mem.control.RegWrite && ex_mem.rd != 0 &&
-             (ex_mem.rd == decodedInst.rs1 || ex_mem.rd == decodedInst.rs2)) {
+             (ex_mem.rd == decodedInst.rs1 || ex_mem.rd == decodedInst.rs2) && ex_mem.opcode == 0x03 ) {
         hazard = true;
-        cycles_to_stall = 2; // EX/MEM → MEM → WB
+        cycles_to_stall = 1; // EX/MEM → MEM → WB
     }
     // Check MEM/WB
-    else if (mem_wb.control.RegWrite && mem_wb.rd != 0 &&
-             (mem_wb.rd == decodedInst.rs1 || mem_wb.rd == decodedInst.rs2)) {
-        hazard = true;
-        cycles_to_stall = 1; // MEM/WB → WB
-    }
+    // else if (mem_wb.control.RegWrite && mem_wb.rd != 0 &&
+    //          (mem_wb.rd == decodedInst.rs1 || mem_wb.rd == decodedInst.rs2)) {
+    //     hazard = true;
+    //     cycles_to_stall = 1; // MEM/WB → WB
+    // }
 
     if (hazard) {
         stall = true;
