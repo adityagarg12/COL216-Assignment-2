@@ -6,6 +6,18 @@ public:
     using Processor::Processor;
 
     void executeStage() override {
+        if (stall) {
+            // ex_mem = EX_MEM{}; // NOP
+            stallCycles--;
+            if (stallCycles <= 0) {
+                stall = false;
+                
+            }
+            stallID = true; // Keep ID stalled while EX is occupied
+            return;
+            
+        }
+
         int op1 = regFile.read(id_ex.rs1);
         int op2 = id_ex.control.ALUSrc ? id_ex.imm : regFile.read(id_ex.rs2);
 
@@ -41,15 +53,20 @@ public:
          
         ex_mem.aluResult = alu.execute(op1, op2, ALUCtrl);
         ex_mem.zero = ex_mem.aluResult == 0;
-        if (ex_mem.zero == 1 && id_ex.control.Branch == 1) {
-            if_id.pc = id_ex.pc - 4 + (id_ex.imm << 1);
-            
-            // ex_mem = EX_MEM();
+        if (id_ex.control.Branch) {
+            bool taken = (id_ex.funct3 == 0x0 && ex_mem.aluResult == 0) || // BEQ
+                         (id_ex.funct3 == 0x1 && ex_mem.aluResult != 0);   // BNE
+            if (taken) {
+                if_id.pc = id_ex.pc + (id_ex.imm << 1);
+                if_id.instruction = 0; // Flush IF/ID with NOP
+                stall = false;
+                stallIF = false; // Clear stalls
+            }
         }
-    //    ex_mem.zero = ex_mem.aluResult == 0;
         ex_mem.rd = id_ex.rd;
         ex_mem.rs2 = id_ex.rs2;
-        ex_mem.control = id_ex.control; // Pass control signals forward
-
+        ex_mem.control = id_ex.control; 
+        ex_mem.pc = id_ex.pc;
+        ex_mem.perform = true; // TO BE CHECKED
     }
 };

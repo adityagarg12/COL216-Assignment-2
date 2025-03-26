@@ -29,6 +29,18 @@ public:
     }
 };
 
+// ****************** CONTROL SIGNALS ******************
+
+struct ControlSignals {
+    bool RegWrite = 0;
+    int ALUOp = 0; // ALU Operation type
+    bool ALUSrc = 0;
+    bool MemRead = 0;
+    bool MemWrite = 0;
+    bool MemToReg = 0;
+    bool Branch = 0;
+};
+
 // ****************** PIPELINE REGISTERS ******************
 
 // struct PC {
@@ -39,6 +51,7 @@ public:
 struct IF_ID {
     uint32_t instruction = 0;
     int pc = 0;
+    bool perform = true;
 };
 
 struct ID_EX {
@@ -50,22 +63,28 @@ struct ID_EX {
     uint32_t funct3 = 0;
     uint32_t funct7 = 0;
     ControlSignals control;
+    bool perform = true;
+
 };
 
 struct EX_MEM {
     int aluResult = 0;
     int rd = 0;
     int rs2 = 0;
+    int pc = 0;
     bool zero = false;
     ControlSignals control;
+    bool perform = true;
 };
 
 struct MEM_WB {
     int memData = 0;
     int aluResult = 0;
     int rd = 0;
+    int pc = 0;
     bool regWrite = false;
     ControlSignals control;
+    bool perform = true;
 };
 
 // ****************** PROCESSOR BASE CLASS ******************
@@ -81,6 +100,12 @@ protected:
     EX_MEM ex_mem;
     MEM_WB mem_wb;
 
+    bool stall = false; // Stall flag
+    int stallCycles = 0; // Number of cycles to stall
+    IF_ID stalled_if_id; // Stalled instruction
+    bool stallIF = false;
+    bool stallID = false;
+    
 public:
     Processor(std::vector<uint32_t> instructions) { memory = instructions; }
 
@@ -179,34 +204,74 @@ DecodedInstruction decodeInstruction(uint32_t instruction) {
 }
 
 
-// ****************** CONTROL SIGNALS ******************
-
-struct ControlSignals {
-    bool RegWrite = 0;
-    int ALUOp = 0; // ALU Operation type
-    bool ALUSrc = 0;
-    bool MemRead = 0;
-    bool MemWrite = 0;
-    bool MemToReg = 0;
-    bool Branch = 0;
-};
 
 
 
 // ****************** FUNCTION DEFINITIONS ******************
 
 void Processor::fetchStage() {
+    if (stallIF){
+        if (stallID == false) {          
+            stallIF = false;
+        }
+        return;
+    }
     if_id.instruction = memory[if_id.pc / 4];
     if_id.pc += 4;
 }
 
 void Processor::decodeStage() {
+    if (stallID) {
+        // During stall, insert NOP into ID/EX
+        // id_ex = ID_EX{}; // NOP
+        // stallCycles--;
+        // if (stallCycles <= 0) {
+        //     stall = false;
+        //     // Don't clear stallIF yet; it will be cleared when ID is free
+        // }
+        if (stall == false) {
+            stallID = false;
+        }
+        stallIF = true; // Keep IF stalled while ID is occupied
+        return;
+    }
+
     uint32_t inst = if_id.instruction;
     uint32_t opcode = inst & 0x7F;
-    uint32_t funct3 = (inst >> 12) & 0x07;
-    
-    id_ex.control = {}; // Reset control signals
-    struct DecodedInstruction decodedInst = decodeInstruction(inst);
+    DecodedInstruction decodedInst = decodeInstruction(inst);
+
+    // Hazard detection
+    bool hazard = false;
+    int cycles_to_stall = 0;
+
+    // // Check ID/EX (instruction in EX stage)
+    // if (id_ex.control.RegWrite && id_ex.rd != 0 &&
+    //     (id_ex.rd == decodedInst.rs1 || id_ex.rd == decodedInst.rs2)) {
+    //     hazard = true;
+    //     cycles_to_stall = 3; // ID/EX → EX → MEM → WB
+    // }
+    // Check EX/MEM
+    if (ex_mem.control.RegWrite && ex_mem.rd != 0 &&
+             (ex_mem.rd == decodedInst.rs1 || ex_mem.rd == decodedInst.rs2)) {
+        hazard = true;
+        cycles_to_stall = 2; // EX/MEM → MEM → WB
+    }
+    // Check MEM/WB
+    else if (mem_wb.control.RegWrite && mem_wb.rd != 0 &&
+             (mem_wb.rd == decodedInst.rs1 || mem_wb.rd == decodedInst.rs2)) {
+        hazard = true;
+        cycles_to_stall = 1; // MEM/WB → WB
+    }
+
+    if (hazard) {
+        stall = true;
+        stallCycles = cycles_to_stall;
+        // stallID = true;
+        // id_ex = ID_EX{}; // Insert NOP
+        // stallIF = true; // Keep IF stalled while ID is occupied
+        // return;
+    }
+    id_ex = ID_EX{}; // Clear previous values
 
     switch (opcode) {
         case 0x33:  // R-Type (ADD, SUB, AND, OR)
@@ -217,7 +282,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
-            id_ex.pc = if_id.pc; // TO BE CHECKED         
+            id_ex.pc = if_id.pc -4 ; // TO BE CHECKED         
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
             id_ex.control.ALUSrc = 0; // ALU uses register
@@ -228,14 +293,17 @@ void Processor::decodeStage() {
             break;
 
         case 0x13:  // I-Type (ADDI, ANDI, ORI)
-
+            // printf("I-Type\n");
+            // printf("rs1: %d\n", decodedInst.rs1);
+            // printf("rd: %d\n", decodedInst.rd);
+            // printf("imm: %d\n", decodedInst.imm);
             id_ex.rs1 = decodedInst.rs1;
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
-            id_ex.pc = if_id.pc; // TO BE CHECKED
+            id_ex.pc = if_id.pc -4; // TO BE CHECKED
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  
             id_ex.control.ALUSrc = 1; // ALU uses immediate
@@ -252,7 +320,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
-            id_ex.pc = if_id.pc; // TO BE CHECKED
+            id_ex.pc = if_id.pc -4; // TO BE CHECKED
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 0;  // ADD for memory address calculation
             id_ex.control.ALUSrc = 1;
@@ -270,7 +338,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;  
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;     
-            id_ex.pc = if_id.pc; // TO BE CHECKED
+            id_ex.pc = if_id.pc -4; // TO BE CHECKED
             id_ex.control.ALUOp = 0;
             id_ex.control.ALUSrc = 1;
             id_ex.control.MemWrite = 1;
@@ -288,7 +356,7 @@ void Processor::decodeStage() {
             id_ex.opcode = opcode;  
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;   
-            id_ex.pc = if_id.pc; // TO BE CHECKED
+            id_ex.pc = if_id.pc -4; // TO BE CHECKED
             id_ex.control.Branch = 1;
             id_ex.control.ALUOp = 1; // Branch ALU operation
             id_ex.control.ALUSrc = 0;
@@ -299,14 +367,14 @@ void Processor::decodeStage() {
             // int zero = alu.execute(regFile.read(id_ex.rs1), regFile.read(id_ex.rs2), 6);
             // uint64_t shiftedImm = (uint64_t)id_ex.imm << 1;
             // if (zero == 0) {
-            //     if_id.pc = if_id.pc - 4 + shiftedImm;
+            //     if_id.pc -4 = if_id.pc -4 - 4 + shiftedImm;
             // }
             break;
         case 0x6F:  // Jump (JAL)  
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
             id_ex.opcode = opcode;
-            id_ex.pc = if_id.pc; // TO BE CHECKED
+            id_ex.pc = if_id.pc -4; // TO BE CHECKED
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
             id_ex.control.ALUSrc = 0; // ALU uses register
@@ -325,6 +393,10 @@ void Processor::decodeStage() {
 
 
 void Processor::memoryStage() {
+    if (ex_mem.perform == false) {
+        return;
+    }
+
     if (ex_mem.control.MemRead) {
         mem_wb.memData = memory[ex_mem.aluResult / 4];
     }
@@ -334,7 +406,9 @@ void Processor::memoryStage() {
 
     mem_wb.aluResult = ex_mem.aluResult;
     mem_wb.rd = ex_mem.rd;
+    mem_wb.pc = ex_mem.pc;
     mem_wb.control = ex_mem.control;
+    ex_mem.perform = false; // TO BE CHECKED
 }
 
 void Processor::writeBackStage() {
@@ -350,6 +424,15 @@ void Processor::writeBackStage() {
 
 void Processor::runSimulation(int cycles) {
     for (int i = 0; i < cycles; i++) {
+        std::cout << "Cycle " << i << ":\n";
+        std::cout << "IF: PC=" << if_id.pc << ", Instr=" << std::hex << if_id.instruction << "\n";
+        std::cout << "ID: Instr=" << id_ex.instruction << ", rs1=" << id_ex.rs1 << ", rs2=" << id_ex.rs2 << ",rd=" << id_ex.rd << "\n";
+        std::cout << "EX: ALUResult=" << ex_mem.aluResult << "\n";
+        std::cout << "MEM: MemData=" << mem_wb.memData << "\n";
+        std::cout << "WB: rd=" << mem_wb.rd << ", value=" << (mem_wb.control.MemToReg ? mem_wb.memData : mem_wb.aluResult) << "\n";
+        if (stall) std::cout << "Stall: " << stallCycles << " cycles remaining\n";
+        std::cout << "\n";
+
         writeBackStage();
         memoryStage();
         executeStage();

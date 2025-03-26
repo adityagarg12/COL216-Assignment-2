@@ -11,13 +11,13 @@ int main(int argc, char* argv[]) {
     };
 
     NoForwardingProcessor noForwardProc(instructions);
-    ForwardingProcessor forwardProc(instructions);
+    // ForwardingProcessor forwardProc(instructions);
 
     std::cout << "Running No Forwarding Processor:\n";
     noForwardProc.runSimulation(10);
 
-    std::cout << "\nRunning Forwarding Processor:\n";
-    forwardProc.runSimulation(10);
+    // std::cout << "\nRunning Forwarding Processor:\n";
+    // forwardProc.runSimulation(10);
 
     return 0;
 }
