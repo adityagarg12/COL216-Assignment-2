@@ -52,6 +52,10 @@ struct IF_ID {
     uint32_t instruction = 0;
     int pc = 0;
     bool perform = false;
+    bool jump = false;
+    int nop = 0;
+    int nop_count = 0;
+
 };
 
 struct ID_EX {
@@ -64,6 +68,8 @@ struct ID_EX {
     uint32_t funct7 = 0;
     ControlSignals control;
     bool perform = false;
+    int nop = 0;
+    int nop_count = 0;
 
 };
 
@@ -75,6 +81,7 @@ struct EX_MEM {
     bool zero = false;
     ControlSignals control;
     bool perform = false;
+    uint64_t jump = -1;
 };
 
 struct MEM_WB {
@@ -199,6 +206,7 @@ DecodedInstruction decodeBType(uint32_t instruction) {
 DecodedInstruction decodeJType(uint32_t instruction) {
     DecodedInstruction decoded;
     decoded.opcode = instruction & 0x7F;
+
     decoded.rd = (instruction >> 7) & 0x1F;
     // Sign-extend and reorder immediate bits
     decoded.imm = (((instruction >> 31) & 1) << 20) |
@@ -240,7 +248,13 @@ void Processor::fetchStage(int cycles, std::vector<std::vector<std::string>> &ve
         return;
     }
     if (start == false ){
-        if ((if_id.pc/4 + 1)  < numInstructions) if_id.pc +=4;
+        if(if_id.jump == true){
+            if_id.jump = false;
+            if(if_id.pc/4 >= numInstructions){
+                return ; //exception to be raised
+            }
+        }
+        else if ((if_id.pc/4 + 1)  < numInstructions) if_id.pc +=4;
         else {
             if_id = IF_ID{};
             if_done = true;
@@ -253,10 +267,27 @@ void Processor::fetchStage(int cycles, std::vector<std::vector<std::string>> &ve
     }
     start = false;
     if_id.perform = true;
+    if(ex_mem.jump != -1){
+        if_id.pc = ex_mem.jump;
+        ex_mem.jump = -1;
+        if_id.jump = true;
+    }
     // if_id.pc += 4;
 }
 
 void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &vec) {
+
+    if(if_id.nop > 0){
+        
+        if(if_id.nop_count == if_id.nop){
+            if_id.nop = 0;
+            if_id.nop_count = 0;
+            if_id = IF_ID{};
+            return;
+        }
+        if_id.nop_count++;
+    }
+
     if (stallID) {
         // During stall, insert NOP into ID/EX
         // id_ex = ID_EX{}; // NOP
@@ -335,6 +366,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
+            
              // TO BE CHECKED         
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
@@ -343,6 +375,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             id_ex.control.MemRead = 0;
             id_ex.control.MemWrite = 0;
             id_ex.control.Branch = 0;
+
             break;
 
         case 0x13:  // I-Type (ADDI, ANDI, ORI)
@@ -426,16 +459,37 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
         case 0x6F:  // Jump (JAL)  
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
+
             id_ex.opcode = opcode;
              // TO BE CHECKED
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
-            id_ex.control.ALUSrc = 0; // ALU uses register
+            id_ex.control.ALUSrc = 1; // ALU uses immediate
+            id_ex.control.MemToReg = 0; // Write ALU result to reg
+            id_ex.control.MemRead = 0;
+            id_ex.control.MemWrite = 0;
+            id_ex.control.Branch = 0;
+            
+            if_id.nop = 1;
+            id_ex.nop = 1;
+
+            break;
+        case 0x67: // Jump Register (JALR)
+            id_ex.rs1 = decodedInst.rs1;
+            id_ex.rd = decodedInst.rd;
+            id_ex.imm = decodedInst.imm;
+            id_ex.opcode = opcode;
+             // TO BE CHECKED
+            id_ex.control.RegWrite = 1;
+            id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+            id_ex.control.ALUSrc = 1; // ALU uses immediate
             id_ex.control.MemToReg = 0; // Write ALU result to reg
             id_ex.control.MemRead = 0;
             id_ex.control.MemWrite = 0;
             id_ex.control.Branch = 0;
 
+            if_id.nop = 1;
+            id_ex.nop = 1;;
             break;
 
         default:
@@ -466,6 +520,7 @@ void Processor::memoryStage(int cycles,std::vector<std::vector<std::string>> &ve
     vec[mem_wb.pc/4][cycles]="MEM";
     }
     mem_wb.perform = true;
+    ex_mem = EX_MEM();
     ex_mem.perform = false; // TO BE CHECKED
 }
 
@@ -485,13 +540,20 @@ void Processor::writeBackStage(int cycles,std::vector<std::vector<std::string>> 
     if (((mem_wb.pc)/4)< numInstructions){
     vec[(mem_wb.pc)/4][cycles] = "WB";
     }
+    mem_wb = MEM_WB();
     mem_wb.perform = false;
+
     
 }
 
 void printPipelineDiagram(const std::vector<std::vector<std::string>> &vec) {
     std::cout << "Pipeline Execution:\n";
-
+    // Print cycle numbers on top
+    
+    for (size_t i = 0; i < vec[0].size(); ++i) {
+        std::cout <<" "<< i << " ";
+    }
+    std::cout << "\n";
     // Iterate over each instruction (row-wise)
     for (const auto &row : vec) {
         // Iterate over each cycle (column-wise)
