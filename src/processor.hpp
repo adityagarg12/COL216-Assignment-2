@@ -51,7 +51,7 @@ struct ControlSignals {
 struct IF_ID {
     uint32_t instruction = 0;
     int pc = 0;
-    bool perform = true;
+    bool perform = false;
 };
 
 struct ID_EX {
@@ -63,7 +63,7 @@ struct ID_EX {
     uint32_t funct3 = 0;
     uint32_t funct7 = 0;
     ControlSignals control;
-    bool perform = true;
+    bool perform = false;
 
 };
 
@@ -74,7 +74,7 @@ struct EX_MEM {
     int pc = 0;
     bool zero = false;
     ControlSignals control;
-    bool perform = true;
+    bool perform = false;
 };
 
 struct MEM_WB {
@@ -84,7 +84,7 @@ struct MEM_WB {
     int pc = 0;
     bool regWrite = false;
     ControlSignals control;
-    bool perform = true;
+    bool perform = false;
 };
 //********************************************* */
 int NumInstruction(std::vector<uint32_t> instructions){
@@ -226,21 +226,31 @@ DecodedInstruction decodeInstruction(uint32_t instruction) {
 // ****************** FUNCTION DEFINITIONS ******************
 
 void Processor::fetchStage(int cycles, std::vector<std::vector<std::string>> &vec) {
-    
+   
     if (stallIF){
         if (stallID == false) {          
             stallIF = false;
         }
-        if(if_id.pc/4 -1 < numInstructions){
-        vec[if_id.pc/4 - 1][cycles] = " - ";
+        if(if_id.pc/4  < numInstructions){
+        vec[if_id.pc/4][cycles] = "- ";
         }
         return;
+    }
+    if (start == false ){
+        if ((if_id.pc/4 + 1)  < numInstructions) if_id.pc +=4;
+        else {
+            if_id = IF_ID{};
+            
+            return;        
+        }
     }
     if_id.instruction = memory[if_id.pc / 4];
     if(if_id.pc/4 < numInstructions){
     vec[if_id.pc/4][cycles] = "IF";
     }
-    if_id.pc += 4;
+    start = false;
+    if_id.perform = true;
+    // if_id.pc += 4;
 }
 
 void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &vec) {
@@ -257,8 +267,17 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
         }
         stallIF = true; // Keep IF stalled while ID is occupied
         if (id_ex.pc/4 < numInstructions){
-        vec[id_ex.pc/4][cycles]=" - ";
+        vec[id_ex.pc/4][cycles]="- ";
         }
+        return;
+    }
+
+    if (id_ex.pc/4 + 1 >= numInstructions) {
+        id_ex = ID_EX{};
+        return; // No more instructions to decode
+    }
+
+    if (if_id.perform == false) {
         return;
     }
 
@@ -298,10 +317,12 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
         // return;
     }
     id_ex = ID_EX{}; // Clear previous values
-    id_ex.pc = if_id.pc -4;
-    if ((id_ex.pc/4 + 1>= numInstructions) && (id_ex.pc/4 < numInstructions)){
+    id_ex.pc = if_id.pc ;
+    if ((id_ex.pc/4 >= 0) && (id_ex.pc/4 < numInstructions)){
     vec[id_ex.pc/4][cycles] = "ID";
     }
+    if_id.perform = false;
+    id_ex.perform = true;
     switch (opcode) {
         case 0x33:  // R-Type (ADD, SUB, AND, OR)
             id_ex.rs1 = decodedInst.rs1;
@@ -422,6 +443,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
 
 
 void Processor::memoryStage(int cycles,std::vector<std::vector<std::string>> &vec) {
+    mem_wb = MEM_WB(); // Clear previous values
     if (ex_mem.perform == false) {
         return;
     }
@@ -437,13 +459,18 @@ void Processor::memoryStage(int cycles,std::vector<std::vector<std::string>> &ve
     mem_wb.rd = ex_mem.rd;
     mem_wb.pc = ex_mem.pc;
     mem_wb.control = ex_mem.control;
-    if (mem_wb.pc/4 + 1>= numInstructions && mem_wb.pc/4 < numInstructions){
+    if (mem_wb.pc/4 < numInstructions){
     vec[mem_wb.pc/4][cycles]="MEM";
     }
+    mem_wb.perform = true;
     ex_mem.perform = false; // TO BE CHECKED
 }
 
 void Processor::writeBackStage(int cycles,std::vector<std::vector<std::string>> &vec) {
+    if(mem_wb.perform == false){
+        return;
+    }   
+
     if (mem_wb.regWrite) {
         if (mem_wb.control.MemToReg) { 
             regFile.write(mem_wb.rd, mem_wb.memData);
@@ -453,8 +480,9 @@ void Processor::writeBackStage(int cycles,std::vector<std::vector<std::string>> 
         }
     }
     if (((mem_wb.pc+4)/4)< numInstructions){
-    vec[(mem_wb.pc+4)/4][cycles] = "WB";
+    vec[(mem_wb.pc)/4][cycles] = "WB";
     }
+    mem_wb.perform = false;
     
 }
 

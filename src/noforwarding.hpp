@@ -18,6 +18,16 @@ public:
             
         }
 
+
+        if(ex_mem.pc/4 + 1 >= numInstructions){
+            ex_mem = EX_MEM{};
+            return;
+        }
+
+        if(id_ex.perform == false){
+            return;
+        }
+
         int op1 = regFile.read(id_ex.rs1);
         int op2 = id_ex.control.ALUSrc ? id_ex.imm : regFile.read(id_ex.rs2);
 
@@ -67,9 +77,10 @@ public:
         ex_mem.rs2 = id_ex.rs2;
         ex_mem.control = id_ex.control; 
         ex_mem.pc = id_ex.pc;
-        if (ex_mem.pc/4 + 1>= numInstructions && ex_mem.pc/4 < numInstructions){
+        if (ex_mem.pc/4 >= 0 && ex_mem.pc/4 < numInstructions){
         vec[ex_mem.pc/4][cycle]= "EX";
         }
+        id_ex.perform = false;
         ex_mem.perform = true; // TO BE CHECKED
     }
 };
