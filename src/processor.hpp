@@ -580,7 +580,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             id_ex.control.Branch = 0;
             break;
         default:
-            std::cout << "Unknown opcode: " << opcode << "\n";
+            // std::cout << "Unknown opcode: " << opcode << "\n";
             break;
     }
 }

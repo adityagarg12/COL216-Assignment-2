@@ -603,7 +603,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             break;
 
         default:
-            std::cout << "Unknown opcode: " << opcode << "\n";
+            // std::cout << "Unknown opcode: " << opcode << "\n";
             break;
     }
 }
