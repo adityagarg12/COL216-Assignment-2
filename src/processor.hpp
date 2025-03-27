@@ -61,7 +61,7 @@ struct IF_ID {
 struct ID_EX {
     uint32_t instruction = 0;
     int pc = 0;
-    int rs1 = 0, rs2 = 0, rd = 0;
+    uint32_t rs1 = 0, rs2 = 0, rd = 0;
     int64_t imm = 0;
     uint32_t opcode = 0;
     uint32_t funct3 = 0;
@@ -75,19 +75,19 @@ struct ID_EX {
 
 struct EX_MEM {
     int aluResult = 0;
-    int rd = 0;
-    int rs2 = 0;
+    uint32_t rd = 0;
+    uint32_t rs2 = 0;
     int pc = 0;
     bool zero = false;
     ControlSignals control;
     bool perform = false;
-    uint64_t jump = -1;
+    int64_t jump = -1;
 };
 
 struct MEM_WB {
     int memData = 0;
     int aluResult = 0;
-    int rd = 0;
+    uint32_t rd = 0;
     int pc = 0;
     bool regWrite = false;
     ControlSignals control;
@@ -96,7 +96,7 @@ struct MEM_WB {
 //********************************************* */
 int NumInstruction(std::vector<uint32_t> instructions){
     int count = 0;
-    for (int i = 0; i < instructions.size(); i++){
+    for (uint32_t i = 0; i < instructions.size(); i++){
         if (instructions[i] != 0){
             count++;
         }
