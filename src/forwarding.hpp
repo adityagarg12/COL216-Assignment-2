@@ -137,20 +137,20 @@ public:
             ex_mem.aluResult = id_ex.pc + 4;
         }
         ex_mem.zero = ex_mem.aluResult == 0;
-        if (id_ex.control.Branch) {
-            bool taken = (id_ex.funct3 == 0x0 && ex_mem.aluResult == 0) || // BEQ
-                         (id_ex.funct3 == 0x1 && ex_mem.aluResult != 0) || // BNE 
-                         (id_ex.funct3 == 0x5 && ex_mem.aluResult >= 0 ) || //BGE
-                         (id_ex.funct3 == 0x4 && ex_mem.aluResult < 0 )  //BLT
-                         ;   
-            if (taken) {
-                ex_mem.branchTarget = id_ex.pc + (id_ex.imm );
-                if_done = false;
-                // if_id.instruction = 0; // Flush IF/ID with NOP
-                // stall = false;
-                // stallIF = false; // Clear stalls
-            }
-        }
+        // if (id_ex.control.Branch) {
+        //     bool taken = (id_ex.funct3 == 0x0 && ex_mem.aluResult == 0) || // BEQ
+        //                  (id_ex.funct3 == 0x1 && ex_mem.aluResult != 0) || // BNE 
+        //                  (id_ex.funct3 == 0x5 && ex_mem.aluResult >= 0 ) || //BGE
+        //                  (id_ex.funct3 == 0x4 && ex_mem.aluResult < 0 )  //BLT
+        //                  ;   
+        //     if (taken) {
+        //         ex_mem.branchTarget = id_ex.pc + (id_ex.imm );
+        //         if_done = false;
+        //         // if_id.instruction = 0; // Flush IF/ID with NOP
+        //         // stall = false;
+        //         // stallIF = false; // Clear stalls
+        //     }
+        // }
         ex_mem.rd = id_ex.rd;
         ex_mem.rs2 = id_ex.rs2;
         ex_mem.opcode = id_ex.opcode;
