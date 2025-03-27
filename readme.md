@@ -20,7 +20,7 @@ This project implements a RISC-V pipeline simulator with two variants: a **No-Fo
 - **Immediate Sign-Extension**: Immediate values are sign-extended appropriately to 32-bit for each instruction type (e.g., 12-bit for I-type, 13-bit for B-type, 21-bit for J-type) to ensure correct arithmetic operations.
 
 ### 4. **Pipeline Execution**
-- **Stage Functions**: Each pipeline stage is implemented as a separate method (`fetchStage`, `decodeStage`, `executeStage`, `memoryStage`, `writeBackStage`) in the `Processor` base class, with `executeStage` overridden in `NoForwardingProcessor` and `ForwardingProcessor` to handle their specific behaviors.
+- **Stage Functions**: Each pipeline stage is implemented as a separate method (`fetchStage`, `decodeStage`, `executeStage`, `memoryStage`, `writeBackStage`) in the `Processor` base class for both in different files, with `executeStage` overridden in `NoForwardingProcessor` and `ForwardingProcessor` to handle their specific behaviors.
 - **Pipeline Diagram**: A 2D vector (`std::vector<std::vector<std::string>> vec`) tracks the pipeline stage of each instruction across cycles. The `printPipelineDiagram` function outputs the diagram in the format `instruction;stage0;stage1;stage2;...`, where stages are `IF`, `ID`, `EX`, `MEM`, `WB`, " " (not yet reached), or `"-"` (passed or stalled).
 - **Cycle Simulation**: The `runSimulation` method iterates over the specified number of cycles, executing each stage in reverse order (WB → MEM → EX → ID → IF) to ensure proper data propagation.
 
