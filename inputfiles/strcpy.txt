@@ -1,0 +1,6 @@
+00550023  sb x5 0 x10
+00028663  beq x5 x0 16
+00a58513  addi x10 x11 0
+01558593  addi x11 x11 1
+fedff06f  jal x0 -20 <stringcopy>
+00008067  jalr x0 x1 0
