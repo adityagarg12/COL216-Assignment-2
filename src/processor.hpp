@@ -503,7 +503,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             id_ex.control.MemRead = 0;
             id_ex.control.MemToReg = 0;
             id_ex.control.RegWrite = 0;
-            // id_ex.nop =1;
+            id_ex.nop =1;
             // int zero = alu.execute(regFile.read(id_ex.rs1), regFile.read(id_ex.rs2), 6);
             // uint32_t shiftedImm = (uint32_t)id_ex.imm << 1;
             // if (zero == 0) {

@@ -4,6 +4,295 @@ class ForwardingProcessor : public Processor {
 public:
     using Processor::Processor;
 
+    
+// void decodeStage(int cycles,std::vector<std::vector<std::string>> &vec) {
+
+//     if(if_id.nop > 0){
+        
+//         if(if_id.nop_count == if_id.nop){
+//             if_id.nop = 0;
+//             if_id.nop_count = 0;
+//             if_id = IF_ID{};
+//             stallID = false;
+//             return;
+//         }   
+//         if_id.nop_count++;
+//     }
+
+//     if (stallID) {
+//         // During stall, insert NOP into ID/EX
+//         // id_ex = ID_EX{}; // NOP
+//         // stallCycles--;
+//         // if (stallCycles <= 0) {
+//         //     stall = false;
+//         //     // Don't clear stallIF yet; it will be cleared when ID is free
+//         // }
+//         if (stall == false) {
+//             stallID = false;
+//         }
+//         stallIF = true; // Keep IF stalled while ID is occupied
+//         if (id_ex.pc/4 < numInstructions){
+//         vec[id_ex.pc/4][cycles]="-";
+//         }
+//         return;
+//     }
+
+//     if (id_ex.pc/4 + 1 >= numInstructions) {
+//         id_ex = ID_EX{};
+//         return; // No more instructions to decode
+//     }
+
+//     if (if_id.perform == false) {
+//         return;
+//     }
+
+//     uint32_t inst = if_id.instruction;
+//     uint32_t opcode = inst & 0x7F;
+//     DecodedInstruction decodedInst = decodeInstruction(inst);
+
+//     // Hazard detection
+//     bool hazard = false;
+//     int cycles_to_stall = 0;
+
+//     // // Check ID/EX (instruction in EX stage)
+//     // if (id_ex.control.RegWrite && id_ex.rd != 0 &&
+//     //     (id_ex.rd == decodedInst.rs1 || id_ex.rd == decodedInst.rs2)) {
+//     //     hazard = true;
+//     //     cycles_to_stall = 3; // ID/EX → EX → MEM → WB
+//     // }
+//     // Check EX/MEM
+//     // if (ex_mem.control.RegWrite && ex_mem.rd != 0 &&
+//     //          (ex_mem.rd == decodedInst.rs1 || ex_mem.rd == decodedInst.rs2) && ex_mem.opcode == 0x03 ) {
+//     //     hazard = true;
+//     //     cycles_to_stall = 1; // EX/MEM → MEM → WB
+//     // }
+
+//     if (ex_mem.control.RegWrite && ex_mem.rd != 0){
+//         if ( ex_mem.opcode == 0x03 && decodedInst.opcode == 0x23 ) {
+//             if (ex_mem.rd == decodedInst.rs1){
+//                 hazard = true;
+//                 cycles_to_stall = 1; // EX/MEM → MEM → WB
+//             }
+             
+//         }
+//         else if ( (ex_mem.rd == decodedInst.rs1 || ex_mem.rd == decodedInst.rs2) && ex_mem.opcode == 0x03 ) {
+//             hazard = true;
+//             cycles_to_stall = 1; // EX/MEM → MEM → WB
+//         }
+         
+// }
+
+//     // Check MEM/WB
+//     // else if (mem_wb.control.RegWrite && mem_wb.rd != 0 &&
+//     //          (mem_wb.rd == decodedInst.rs1 || mem_wb.rd == decodedInst.rs2)) {
+//     //     hazard = true;
+//     //     cycles_to_stall = 1; // MEM/WB → WB
+//     // }
+
+//     if (hazard) {
+//         stall = true;
+//         stallCycles = cycles_to_stall;
+//         // stallID = true;
+//         // id_ex = ID_EX{}; // Insert NOP
+//         // stallIF = true; // Keep IF stalled while ID is occupied
+//         // return;
+//     }
+//     // id_ex = ID_EX{}; // Clear previous values
+//     id_ex.pc = if_id.pc ;
+//     if ((id_ex.pc/4 >= 0) && (id_ex.pc/4 < numInstructions)){
+//     vec[id_ex.pc/4][cycles] = "ID";
+//     }
+//     if_id.perform = false;
+//     id_ex.perform = true;
+//     switch (opcode) {
+//         case 0x33:  // R-Type (ADD, SUB, AND, OR)
+//             id_ex.instruction = if_id.instruction;
+//             id_ex.rs1 = decodedInst.rs1;
+//             id_ex.rs2 = decodedInst.rs2;
+//             id_ex.rd = decodedInst.rd;
+//             id_ex.imm = 0;
+//             id_ex.shamt = 0;
+//             id_ex.opcode = opcode;
+//             id_ex.funct3 = decodedInst.funct3;
+//             id_ex.funct7 = decodedInst.funct7;
+            
+//              // TO BE CHECKED         
+//             id_ex.control.RegWrite = 1;
+//             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+//             id_ex.control.ALUSrc = 0; // ALU uses register
+//             id_ex.control.MemToReg = 0; // Write ALU result to reg
+//             id_ex.control.MemRead = 0;
+//             id_ex.control.MemWrite = 0;
+//             id_ex.control.Branch = 0;
+
+//             break;
+
+//         case 0x13:  // I-Type (ADDI, ANDI, ORI)
+//             // printf("I-Type\n");
+//             // printf("rs1: %d\n", decodedInst.rs1);
+//             // printf("rd: %d\n", decodedInst.rd);
+//             // printf("imm: %d\n", decodedInst.imm);
+//             id_ex.rs1 = decodedInst.rs1;
+//             id_ex.rs2 = 0;
+//             id_ex.rd = decodedInst.rd;
+//             id_ex.imm = decodedInst.imm;
+//             id_ex.opcode = opcode;
+//             id_ex.funct3 = decodedInst.funct3;
+//             id_ex.funct7 = decodedInst.funct7;
+//             if (id_ex.funct3 == 0x1 || id_ex.funct3 == 0x5){
+
+//                 id_ex.imm = decodedInst.shamt;
+
+//             }
+//              // TO BE CHECKED
+//             id_ex.control.RegWrite = 1;
+//             id_ex.control.ALUOp = 2;  
+//             id_ex.control.ALUSrc = 1; // ALU uses immediate
+//             id_ex.control.MemToReg = 0; // Write ALU result to reg
+//             id_ex.control.MemRead = 0;
+//             id_ex.control.MemWrite = 0;
+//             id_ex.control.Branch = 0;
+//             break;
+
+//         case 0x03:  // Load (LW)
+//             id_ex.rs1 = decodedInst.rs1;
+//             id_ex.rs2 = 0;
+//             id_ex.rd = decodedInst.rd;
+//             id_ex.imm = decodedInst.imm;
+//             id_ex.opcode = opcode;
+//             id_ex.funct3 = decodedInst.funct3;
+//             id_ex.funct7 = decodedInst.funct7;
+//              // TO BE CHECKED
+//             id_ex.control.RegWrite = 1;
+//             id_ex.control.ALUOp = 0;  // ADD for memory address calculation
+//             id_ex.control.ALUSrc = 1;
+//             id_ex.control.MemRead = 1;
+//             id_ex.control.MemToReg = 1; // Write MEM data to reg
+//             id_ex.control.MemWrite = 0;
+//             id_ex.control.Branch = 0;
+
+//             break;
+
+//         case 0x23:  // Store (SW)
+//             id_ex.rs1 = decodedInst.rs1;
+//             id_ex.rs2 = decodedInst.rs2;
+//             id_ex.rd = 0;
+//             id_ex.imm = decodedInst.imm;     
+//             id_ex.opcode = opcode;  
+//             id_ex.funct3 = decodedInst.funct3;
+//             id_ex.funct7 = decodedInst.funct7;     
+//              // TO BE CHECKED
+//             id_ex.control.ALUOp = 0;
+//             id_ex.control.ALUSrc = 1;
+//             id_ex.control.MemWrite = 1;
+//             id_ex.control.MemRead = 0;
+//             id_ex.control.MemToReg = 0;
+//             id_ex.control.RegWrite = 0;
+//             id_ex.control.Branch = 0;
+
+//             break;
+
+//         case 0x63:  // Branch (BEQ, BNE)
+//             id_ex.rs1 = decodedInst.rs1;
+//             id_ex.rs2 = decodedInst.rs2;
+//             id_ex.rd = 0;
+//             id_ex.imm = decodedInst.imm;     
+//             id_ex.opcode = opcode;  
+//             id_ex.funct3 = decodedInst.funct3;
+//             id_ex.funct7 = decodedInst.funct7;   
+//              // TO BE CHECKED
+//             id_ex.control.Branch = 1;
+//             id_ex.control.ALUOp = 1; // Branch ALU operation
+//             id_ex.control.ALUSrc = 0;
+//             id_ex.control.MemWrite = 0;
+//             id_ex.control.MemRead = 0;
+//             id_ex.control.MemToReg = 0;
+//             id_ex.control.RegWrite = 0;
+//             // id_ex.nop =1;
+//             // int zero = alu.execute(regFile.read(id_ex.rs1), regFile.read(id_ex.rs2), 6);
+//             // uint32_t shiftedImm = (uint32_t)id_ex.imm << 1;
+//             // if (zero == 0) {
+//             //     if_id.pc -4 = if_id.pc -4 - 4 + shiftedImm;
+//             // }
+//             break;
+//         case 0x6F:  // Jump (JAL)  
+//             id_ex.rd = decodedInst.rd;
+//             id_ex.imm = decodedInst.imm;
+//             id_ex.rs1 = 0;
+//             id_ex.rs2 = 0;
+//             id_ex.opcode = opcode;
+//              // TO BE CHECKED
+//             id_ex.control.RegWrite = 1;
+//             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+//             id_ex.control.ALUSrc = 1; // ALU uses immediate
+//             id_ex.control.MemToReg = 0; // Write ALU result to reg
+//             id_ex.control.MemRead = 0;
+//             id_ex.control.MemWrite = 0;
+//             id_ex.control.Branch = 0;
+            
+//             // if_id.nop = 1;
+//             id_ex.nop = 1;
+
+//             break;
+//         case 0x67: // Jump Register (JALR)
+//             id_ex.rs1 = decodedInst.rs1;
+//             id_ex.rs2 = 0;
+//             id_ex.rd = decodedInst.rd;
+//             id_ex.imm = decodedInst.imm;
+//             id_ex.opcode = opcode;
+//              // TO BE CHECKED
+//             id_ex.control.RegWrite = 1;
+//             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+//             id_ex.control.ALUSrc = 1; // ALU uses immediate
+//             id_ex.control.MemToReg = 0; // Write ALU result to reg
+//             id_ex.control.MemRead = 0;
+//             id_ex.control.MemWrite = 0;
+//             id_ex.control.Branch = 0;
+
+//             // if_id.nop = 1;
+//             id_ex.nop = 1;;
+//             break;
+//             case 0x17: // AUIPC
+//             id_ex.rs1 = 0;
+//             id_ex.rs2 = 0;
+//             id_ex.rd = decodedInst.rd;
+//             id_ex.imm = decodedInst.imm;
+//             id_ex.opcode = opcode;
+//             id_ex.funct3 = decodedInst.funct3;
+//             id_ex.funct7 = decodedInst.funct7;
+//             id_ex.control.RegWrite = 1;
+//             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+//             id_ex.control.ALUSrc = 1; // ALU uses immediate
+//             id_ex.control.MemToReg = 0; // Write ALU result to reg
+//             id_ex.control.MemRead = 0;
+//             id_ex.control.MemWrite = 0;
+//             id_ex.control.Branch = 0;
+//             break;
+//         case 0x37: // LUI
+//             id_ex.rs1 = 0;
+//             id_ex.rs2 = 0;
+//             id_ex.rd = decodedInst.rd;
+//             id_ex.imm = decodedInst.imm;
+//             id_ex.opcode = opcode;
+//             id_ex.funct3 = decodedInst.funct3;
+//             id_ex.funct7 = decodedInst.funct7;
+//             id_ex.control.RegWrite = 1;
+//             id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+//             id_ex.control.ALUSrc = 1; // ALU uses immediate
+//             id_ex.control.MemToReg = 0; // Write ALU result to reg
+//             id_ex.control.MemRead = 0;
+//             id_ex.control.MemWrite = 0;
+//             id_ex.control.Branch = 0;
+//             break;
+
+//         default:
+//             // std::cout << "Unknown opcode: " << opcode << "\n";
+//             break;
+//     }
+// }
+
+
+
     void executeStage(int cycle,std::vector<std::vector<std::string>> &vec) override {
 
         
@@ -137,20 +426,20 @@ public:
             ex_mem.aluResult = id_ex.pc + 4;
         }
         ex_mem.zero = ex_mem.aluResult == 0;
-        // if (id_ex.control.Branch) {
-        //     bool taken = (id_ex.funct3 == 0x0 && ex_mem.aluResult == 0) || // BEQ
-        //                  (id_ex.funct3 == 0x1 && ex_mem.aluResult != 0) || // BNE 
-        //                  (id_ex.funct3 == 0x5 && ex_mem.aluResult >= 0 ) || //BGE
-        //                  (id_ex.funct3 == 0x4 && ex_mem.aluResult < 0 )  //BLT
-        //                  ;   
-        //     if (taken) {
-        //         ex_mem.branchTarget = id_ex.pc + (id_ex.imm );
-        //         if_done = false;
-        //         // if_id.instruction = 0; // Flush IF/ID with NOP
-        //         // stall = false;
-        //         // stallIF = false; // Clear stalls
-        //     }
-        // }
+        if (id_ex.control.Branch) {
+            bool taken = (id_ex.funct3 == 0x0 && ex_mem.aluResult == 0) || // BEQ
+                         (id_ex.funct3 == 0x1 && ex_mem.aluResult != 0) || // BNE 
+                         (id_ex.funct3 == 0x5 && ex_mem.aluResult >= 0 ) || //BGE
+                         (id_ex.funct3 == 0x4 && ex_mem.aluResult < 0 )  //BLT
+                         ;   
+            if (taken) {
+                ex_mem.branchTarget = id_ex.pc + (id_ex.imm );
+                if_done = false;
+                // if_id.instruction = 0; // Flush IF/ID with NOP
+                // stall = false;
+                // stallIF = false; // Clear stalls
+            }
+        }
         ex_mem.rd = id_ex.rd;
         ex_mem.rs2 = id_ex.rs2;
         ex_mem.opcode = id_ex.opcode;
