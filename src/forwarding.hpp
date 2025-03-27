@@ -43,7 +43,7 @@ public:
             return;
         }
 
-        int op1 = id_ex.opcode==0x6F ? id_ex.pc : regFile.read(id_ex.rs1);
+        int op1 = (id_ex.opcode==0x6F || id_ex.opcode==0x17) ? id_ex.pc : regFile.read(id_ex.rs1);
         int op2 = id_ex.control.ALUSrc ? id_ex.imm : regFile.read(id_ex.rs2);
 
         if (ex_mem.control.RegWrite && ex_mem.rd == id_ex.rs1) op1 = ex_mem.aluResult;
@@ -116,15 +116,21 @@ public:
         else if (id_ex.opcode == 0x6F){
             ALUCtrl = 2; // JAL 
             ex_mem.jump = id_ex.pc + id_ex.imm;
+            if_done = false;
         }
         else if (id_ex.opcode == 0x67){
             ALUCtrl = 2; // JALR
             ex_mem.jump = (regFile.read(id_ex.rs1) + op2) & ~1;
             if_done = false;
         }
+        else if (id_ex.opcode == 0x17 || id_ex.opcode == 0x37){
+
+            ALUCtrl = 2; // AUIPC
+
+        }
         if(id_ex.opcode != 0x13 && (id_ex.opcode ==0x13 && id_ex.funct3 != 0x1 && id_ex.funct3 != 0x5)){
             ex_mem.aluResult = alu.execute(op1, op2, ALUCtrl);
-            if_done = false;
+            
         }
         // ex_mem.aluResult = alu.execute(op1, op2, ALUCtrl);
         if (id_ex.opcode == 0x67 || id_ex.opcode == 0x6F){

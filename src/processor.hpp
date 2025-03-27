@@ -242,6 +242,18 @@ DecodedInstruction decodeJType(uint32_t instruction) {
     return decoded;
 }
 
+DecodedInstruction decodeUType(uint32_t instruction) {
+    DecodedInstruction decoded;
+    decoded.opcode = instruction & 0x7F;
+    decoded.rd = (instruction >> 7) & 0x1F;
+    decoded.rs1 = 0;
+    decoded.rs2 = 0;
+    decoded.funct3 = 0;
+    decoded.funct7 = 0;
+    decoded.imm = (int32_t)(instruction & 0xFFFFF000); // imm[31:12]
+    return decoded;
+}
+
 DecodedInstruction decodeInstruction(uint32_t instruction) {
     uint32_t opcode = instruction & 0x7F;
     
@@ -250,7 +262,7 @@ DecodedInstruction decodeInstruction(uint32_t instruction) {
     if (opcode == 0x23) return decodeSType(instruction); // S-Type (Store)
     if (opcode == 0x63) return decodeBType(instruction); // B-Type (Branch)
     if (opcode == 0x6F) return decodeJType(instruction); // J-Type (JAL)
-
+    if (opcode == 0x37 || opcode == 0x17) return decodeUType(instruction); // U-Type (LUI, AUIPC)
     return {}; // Return empty struct if unknown instruction
 }
 
@@ -535,7 +547,38 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             // if_id.nop = 1;
             id_ex.nop = 1;;
             break;
-
+        case 0x17: // AUIPC
+            id_ex.rs1 = 0;
+            id_ex.rs2 = 0;
+            id_ex.rd = decodedInst.rd;
+            id_ex.imm = decodedInst.imm;
+            id_ex.opcode = opcode;
+            id_ex.funct3 = decodedInst.funct3;
+            id_ex.funct7 = decodedInst.funct7;
+            id_ex.control.RegWrite = 1;
+            id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+            id_ex.control.ALUSrc = 1; // ALU uses immediate
+            id_ex.control.MemToReg = 0; // Write ALU result to reg
+            id_ex.control.MemRead = 0;
+            id_ex.control.MemWrite = 0;
+            id_ex.control.Branch = 0;
+            break;
+        case 0x37: // LUI
+            id_ex.rs1 = 0;
+            id_ex.rs2 = 0;
+            id_ex.rd = decodedInst.rd;
+            id_ex.imm = decodedInst.imm;
+            id_ex.opcode = opcode;
+            id_ex.funct3 = decodedInst.funct3;
+            id_ex.funct7 = decodedInst.funct7;
+            id_ex.control.RegWrite = 1;
+            id_ex.control.ALUOp = 2;  // ALU operation based on funct3
+            id_ex.control.ALUSrc = 1; // ALU uses immediate
+            id_ex.control.MemToReg = 0; // Write ALU result to reg
+            id_ex.control.MemRead = 0;
+            id_ex.control.MemWrite = 0;
+            id_ex.control.Branch = 0;
+            break;
         default:
             std::cout << "Unknown opcode: " << opcode << "\n";
             break;
