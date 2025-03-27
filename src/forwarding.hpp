@@ -1,4 +1,3 @@
-
 #include "processor_forwarding.hpp"
 
 class ForwardingProcessor : public Processor {
