@@ -26,16 +26,18 @@ int main(int argc, char* argv[]) {
         0x00008067
     };
 
+
+
     
 
     // NoForwardingProcessor noForwardProc(instructions);
-    ForwardingProcessor forwardProc(instructions);
+    ForwardingProcessor forwardProc(instructions2);
 
     // std::cout << "Running No Forwarding Processor:\n";
     // noForwardProc.runSimulation(25);
 
     std::cout << "\nRunning Forwarding Processor:\n";
-    forwardProc.runSimulation(15);
+    forwardProc.runSimulation(10);
 
     return 0;
 

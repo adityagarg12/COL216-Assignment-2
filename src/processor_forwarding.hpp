@@ -332,11 +332,27 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
     //     cycles_to_stall = 3; // ID/EX → EX → MEM → WB
     // }
     // Check EX/MEM
-    if (ex_mem.control.RegWrite && ex_mem.rd != 0 &&
-             (ex_mem.rd == decodedInst.rs1 || ex_mem.rd == decodedInst.rs2) && ex_mem.opcode == 0x03 ) {
-        hazard = true;
-        cycles_to_stall = 1; // EX/MEM → MEM → WB
-    }
+    // if (ex_mem.control.RegWrite && ex_mem.rd != 0 &&
+    //          (ex_mem.rd == decodedInst.rs1 || ex_mem.rd == decodedInst.rs2) && ex_mem.opcode == 0x03 ) {
+    //     hazard = true;
+    //     cycles_to_stall = 1; // EX/MEM → MEM → WB
+    // }
+    
+    if (ex_mem.control.RegWrite && ex_mem.rd != 0){
+        if ( ex_mem.opcode == 0x03 && decodedInst.opcode == 0x23 ) {
+            if (ex_mem.rd == decodedInst.rs1){
+                hazard = true;
+                cycles_to_stall = 1; // EX/MEM → MEM → WB
+            }
+             
+        }
+        else if ( (ex_mem.rd == decodedInst.rs1 || ex_mem.rd == decodedInst.rs2) && ex_mem.opcode == 0x03 ) {
+            hazard = true;
+            cycles_to_stall = 1; // EX/MEM → MEM → WB
+        }
+         
+}
+
     // Check MEM/WB
     // else if (mem_wb.control.RegWrite && mem_wb.rd != 0 &&
     //          (mem_wb.rd == decodedInst.rs1 || mem_wb.rd == decodedInst.rs2)) {

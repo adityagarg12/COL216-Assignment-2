@@ -144,6 +144,8 @@ public:
     void runSimulation(int cycles);
 };
 
+// ****************** INSTRUCTION DECODING ******************
+
 struct DecodedInstruction {
     uint32_t opcode;
     uint32_t rd;
@@ -227,9 +229,6 @@ DecodedInstruction decodeInstruction(uint32_t instruction) {
 
     return {}; // Return empty struct if unknown instruction
 }
-
-
-
 
 
 // ****************** FUNCTION DEFINITIONS ******************
@@ -547,6 +546,8 @@ void Processor::writeBackStage(int cycles,std::vector<std::vector<std::string>> 
     
 }
 
+// Print the pipeline diagram
+
 void printPipelineDiagram(const std::vector<std::vector<std::string>> &vec) {
     std::cout << "Pipeline Execution:\n";
     // Print cycle numbers on top
@@ -564,7 +565,6 @@ void printPipelineDiagram(const std::vector<std::vector<std::string>> &vec) {
         std::cout << "\n";  // New line for next instruction
     }
 }
-
 
 
 void Processor::runSimulation(int cycles) {

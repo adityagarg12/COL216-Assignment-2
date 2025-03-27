@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
 
     
 
-    NoForwardingProcessor noForwardProc(instructions);
+    NoForwardingProcessor noForwardProc(instructions2);
     // ForwardingProcessor forwardProc(instructions);
 
     std::cout << "Running No Forwarding Processor:\n";
