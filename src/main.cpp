@@ -1,6 +1,6 @@
-#include <fstream>  // For file I/O
-#include <sstream>  // For string parsing
-#include <stdexcept> // For error handling
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
 #include "processor.hpp"
 #include "noforwarding.hpp"
 
@@ -25,6 +25,24 @@ int main(int argc, char* argv[]) {
         }
     } catch (const std::exception& e) {
         std::cerr << "Error: Invalid cycle count '" << argv[2] << "'. Must be a positive integer.\n";
+        return 1;
+    }
+
+    // Extract the base filename using std::string operations
+    // Find the last path separator ('/' or '\')
+    size_t lastSlash = inputFilePath.find_last_of("/\\");
+    std::string filename = (lastSlash == std::string::npos) ? inputFilePath : inputFilePath.substr(lastSlash + 1);
+
+    // Remove the extension (e.g., ".txt")
+    size_t lastDot = filename.find_last_of('.');
+    std::string baseFilename = (lastDot == std::string::npos) ? filename : filename.substr(0, lastDot);
+
+    // Construct the output file path
+    std::string outputFilePath = "../outputfiles/" + baseFilename + "_noforward_out.txt";
+
+    // Redirect stdout to the output file
+    if (!freopen(outputFilePath.c_str(), "w", stdout)) {
+        std::cerr << "Error: Could not redirect stdout to " << outputFilePath << "\n";
         return 1;
     }
 
@@ -60,11 +78,9 @@ int main(int argc, char* argv[]) {
             inputFile.close();
             return 1;
         }
-
-        // Ignore the rest of the line (instruction description)
     }
 
-    // Close the file
+    // Close the input file
     inputFile.close();
 
     // Check if any instructions were loaded
@@ -73,18 +89,21 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Print the loaded instructions for verification
+    // Print the loaded instructions (this will go to the output file)
     std::cout << "Loaded Instructions (Machine Code):\n";
     for (const auto& instr : instructions) {
         std::cout << std::hex << "0x" << instr << "\n";
     }
-    std::cout << std::dec << "\n"; // Reset to decimal output
+    std::cout << std::dec << "\n";
 
     // Create the processor with the loaded instructions
     NoForwardingProcessor noForwardProc(instructions);
 
     std::cout << "Running No Forwarding Processor for " << cycleCount << " cycles:\n";
     noForwardProc.runSimulation(cycleCount);
+
+    // Close the redirected stdout
+    fclose(stdout);
 
     return 0;
 }

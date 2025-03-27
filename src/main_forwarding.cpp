@@ -28,6 +28,24 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Extract the base filename using std::string operations
+    // Find the last path separator ('/' or '\')
+    size_t lastSlash = inputFilePath.find_last_of("/\\");
+    std::string filename = (lastSlash == std::string::npos) ? inputFilePath : inputFilePath.substr(lastSlash + 1);
+
+    // Remove the extension (e.g., ".txt")
+    size_t lastDot = filename.find_last_of('.');
+    std::string baseFilename = (lastDot == std::string::npos) ? filename : filename.substr(0, lastDot);
+
+    // Construct the output file path
+    std::string outputFilePath = "../outputfiles/" + baseFilename + "_forward_out.txt";
+
+    // Redirect stdout to the output file
+    if (!freopen(outputFilePath.c_str(), "w", stdout)) {
+        std::cerr << "Error: Could not redirect stdout to " << outputFilePath << "\n";
+        return 1;
+    }
+
     // Vector to store the machine code instructions
     std::vector<uint32_t> instructions;
 
@@ -62,7 +80,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Close the file
+    // Close the input file
     inputFile.close();
 
     // Check if any instructions were loaded
@@ -71,7 +89,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Print the loaded instructions for verification
+    // Print the loaded instructions (this will go to the output file)
     std::cout << "Loaded Instructions (Machine Code):\n";
     for (const auto& instr : instructions) {
         std::cout << std::hex << "0x" << instr << "\n";
@@ -83,6 +101,9 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Running Forwarding Processor for " << cycleCount << " cycles:\n";
     forwardProc.runSimulation(cycleCount);
+
+    // Close the redirected stdout
+    fclose(stdout);
 
     return 0;
 }
