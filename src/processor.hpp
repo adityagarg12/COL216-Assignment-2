@@ -221,7 +221,9 @@ DecodedInstruction decodeJType(uint32_t instruction) {
     DecodedInstruction decoded;
     decoded.opcode = instruction & 0x7F;
     decoded.imm = 0;
+
     decoded.rd = (instruction >> 7) & 0x1F;
+    
 
     // Sign-extend and reorder immediate bits
     decoded.imm |= ((int32_t)(instruction >> 31) & 1) << 20;  // imm[20] (sign bit)
@@ -244,7 +246,7 @@ DecodedInstruction decodeInstruction(uint32_t instruction) {
     uint32_t opcode = instruction & 0x7F;
     
     if (opcode == 0x33) return decodeRType(instruction); // R-Type
-    if (opcode == 0x13 || opcode == 0x03) return decodeIType(instruction); // I-Type (ADDI, LOAD)
+    if (opcode == 0x13 || opcode == 0x03 || opcode == 0x67) return decodeIType(instruction); // I-Type (ADDI, LOAD)
     if (opcode == 0x23) return decodeSType(instruction); // S-Type (Store)
     if (opcode == 0x63) return decodeBType(instruction); // B-Type (Branch)
     if (opcode == 0x6F) return decodeJType(instruction); // J-Type (JAL)
@@ -390,10 +392,12 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
     id_ex.perform = true;
     switch (opcode) {
         case 0x33:  // R-Type (ADD, SUB, AND, OR)
+            id_ex.instruction = if_id.instruction;
             id_ex.rs1 = decodedInst.rs1;
             id_ex.rs2 = decodedInst.rs2;
             id_ex.rd = decodedInst.rd;
             id_ex.imm = 0;
+            id_ex.shamt = 0;
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
@@ -412,6 +416,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
         case 0x13:  // I-Type (ADDI, ANDI, ORI)
             
             id_ex.rs1 = decodedInst.rs1;
+            id_ex.rs2 = 0;
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
             id_ex.opcode = opcode;
@@ -434,6 +439,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
 
         case 0x03:  // Load (LW)
             id_ex.rs1 = decodedInst.rs1;
+            id_ex.rs2 = 0;
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
             id_ex.opcode = opcode;
@@ -453,6 +459,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
         case 0x23:  // Store (SW)
             id_ex.rs1 = decodedInst.rs1;
             id_ex.rs2 = decodedInst.rs2;
+            id_ex.rd = 0;
             id_ex.imm = decodedInst.imm;     
             id_ex.opcode = opcode;  
             id_ex.funct3 = decodedInst.funct3;
@@ -471,6 +478,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
         case 0x63:  // Branch (BEQ, BNE)
             id_ex.rs1 = decodedInst.rs1;
             id_ex.rs2 = decodedInst.rs2;
+            id_ex.rd = 0;
             id_ex.imm = decodedInst.imm;     
             id_ex.opcode = opcode;  
             id_ex.funct3 = decodedInst.funct3;
@@ -493,7 +501,8 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
         case 0x6F:  // Jump (JAL)  
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
-
+            id_ex.rs1 = 0;
+            id_ex.rs2 = 0;
             id_ex.opcode = opcode;
              // TO BE CHECKED
             id_ex.control.RegWrite = 1;
@@ -510,6 +519,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             break;
         case 0x67: // Jump Register (JALR)
             id_ex.rs1 = decodedInst.rs1;
+            id_ex.rs2 = 0;
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
             id_ex.opcode = opcode;
@@ -522,7 +532,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             id_ex.control.MemWrite = 0;
             id_ex.control.Branch = 0;
 
-            if_id.nop = 1;
+            // if_id.nop = 1;
             id_ex.nop = 1;;
             break;
 
@@ -538,7 +548,7 @@ void Processor::memoryStage(int cycles,std::vector<std::vector<std::string>> &ve
     if (ex_mem.perform == false) {
         return;
     }
-
+    
     if (ex_mem.control.MemRead) {
         mem_wb.memData = memory[ex_mem.aluResult / 4];
     }

@@ -7,18 +7,7 @@ public:
 
     void executeStage(int cycle,std::vector<std::vector<std::string>> &vec) override {
 
-        if (id_ex.nop > 0) {
-            
-            if (id_ex.nop_count == id_ex.nop) {
-                id_ex.nop = 0;
-                id_ex.nop_count = 0;
-                id_ex = ID_EX{};
-                stall = false;
-                return;
-            }
-            id_ex.nop_count++;
-        }
-
+        
 
         if (stall) {
             // ex_mem = EX_MEM{}; // NOP
@@ -30,6 +19,18 @@ public:
             stallID = true; // Keep ID stalled while EX is occupied
             return;
             
+        }
+
+        if (id_ex.nop > 0) {
+            
+            if (id_ex.nop_count == id_ex.nop) {
+                id_ex.nop = 0;
+                id_ex.nop_count = 0;
+                id_ex = ID_EX{};
+                stall = false;
+                return;
+            }
+            id_ex.nop_count++;
         }
 
 
@@ -111,10 +112,12 @@ public:
         else if (id_ex.opcode == 0x6F){
             ALUCtrl = 2; // JAL
             ex_mem.jump = id_ex.pc + id_ex.imm;
+            if_done = false;
         }
         else if (id_ex.opcode == 0x67){
             ALUCtrl = 2; // JALR
             ex_mem.jump = (regFile.read(id_ex.rs1) + op2) & ~1;
+            if_done = false;
         }
         if(id_ex.opcode != 0x13 && (id_ex.opcode ==0x13 && id_ex.funct3 != 0x1 && id_ex.funct3 != 0x5)){
             ex_mem.aluResult = alu.execute(op1, op2, ALUCtrl);
@@ -135,6 +138,7 @@ public:
                          ;   
             if (taken) {
                 ex_mem.branchTarget = id_ex.pc + (id_ex.imm );
+                if_done = false;
                 // if_id.instruction = 0; // Flush IF/ID with NOP
                 // stall = false;
                 // stallIF = false; // Clear stalls
