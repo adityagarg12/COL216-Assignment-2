@@ -50,7 +50,7 @@ struct ControlSignals {
 
 struct IF_ID {
     uint32_t instruction = 0;
-    int64_t pc = 0;
+    int32_t pc = 0;
     bool perform = false;
     bool jump = false;
     int nop = 0;
@@ -60,9 +60,10 @@ struct IF_ID {
 
 struct ID_EX {
     uint32_t instruction = 0;
-    int64_t pc = 0;
+    int32_t pc = 0;
     uint32_t rs1 = 0, rs2 = 0, rd = 0;
-    int64_t imm = 0;
+    int32_t imm = 0;
+    int32_t shamt = 0;
     uint32_t opcode = 0;
     uint32_t funct3 = 0;
     uint32_t funct7 = 0;
@@ -77,18 +78,19 @@ struct EX_MEM {
     int aluResult = 0;
     uint32_t rd = 0;
     uint32_t rs2 = 0;
-    int64_t pc = 0;
+    int32_t pc = 0;
     bool zero = false;
     ControlSignals control;
     bool perform = false;
-    int64_t jump = -1;
+    int32_t jump = -1;
+    int32_t branchTarget = -1;
 };
 
 struct MEM_WB {
     int memData = 0;
     int aluResult = 0;
     uint32_t rd = 0;
-    int64_t pc = 0;
+    int32_t pc = 0;
     bool regWrite = false;
     ControlSignals control;
     bool perform = false;
@@ -153,7 +155,8 @@ struct DecodedInstruction {
     uint32_t rs1;
     uint32_t rs2;
     uint32_t funct7;
-    int64_t imm = 0;  // Signed immediate
+    int32_t shamt = 0; // Shift amount
+    int32_t imm = 0;  // Signed immediate
 };
 
 DecodedInstruction decodeRType(uint32_t instruction) {
@@ -173,8 +176,15 @@ DecodedInstruction decodeIType(uint32_t instruction) {
     decoded.rd = (instruction >> 7) & 0x1F;
     decoded.funct3 = (instruction >> 12) & 0x07;
     decoded.rs1 = (instruction >> 15) & 0x1F;
+    decoded.funct7 = (instruction >> 25) & 0x7F;
+    decoded.rs2 = 0;
+
+    if (decoded.opcode == 0x13 && (decoded.funct3 == 0x1 || decoded.funct3 == 0x5)){
+        decoded.shamt = (instruction >> 20) & 0x1F; //int32_t TO BE ADDED?
+    }
     // Sign-extend 12-bit immediate
-    decoded.imm = ((int64_t)(instruction & 0xFFF00000)) >> 20;
+    else 
+        decoded.imm = ((int32_t)(instruction & 0xFFF00000)) >> 20;
     return decoded;
 }
 
@@ -185,7 +195,7 @@ DecodedInstruction decodeSType(uint32_t instruction) {
     decoded.rs1 = (instruction >> 15) & 0x1F;
     decoded.rs2 = (instruction >> 20) & 0x1F;
     // Combine imm[11:5] and imm[4:0]
-    decoded.imm = ((int64_t)(instruction & 0xFE000000) >> 20) | ((instruction >> 7) & 0x1F);
+    decoded.imm = ((int32_t)(instruction & 0xFE000000) >> 20) | ((instruction >> 7) & 0x1F);
     return decoded;
 }
 
@@ -196,33 +206,37 @@ DecodedInstruction decodeBType(uint32_t instruction) {
     decoded.rs1 = (instruction >> 15) & 0x1F;
     decoded.rs2 = (instruction >> 20) & 0x1F;
     // Sign-extend immediate and arrange bits properly
-    decoded.imm = (((int64_t)(instruction >> 31) & 1) << 12) |  // imm[12]
-                  (((int64_t)(instruction >> 25) & 0x3F) << 5) | // imm[10:5]
-                  (((int64_t)(instruction >> 8) & 0xF) << 1) |   // imm[4:1]
-                  (((int64_t)(instruction >> 7) & 1) << 11);     // imm[11]
-    // Sign-extend the immediate value
-    decoded.imm = (decoded.imm << 51) >> 51;
+    decoded.imm = (((int32_t)(instruction >> 31) & 1) << 12) |  // imm[12]
+                  (((int32_t)(instruction >> 25) & 0x3F) << 5) | // imm[10:5]
+                  (((int32_t)(instruction >> 8) & 0xF) << 1) |   // imm[4:1]
+                  (((int32_t)(instruction >> 7) & 1) << 11);     // imm[11]
+    // Sign-extend the immediate value to 32 bits
+    if (decoded.imm & (1 << 12)) { // If sign bit (bit 12) is 1
+        decoded.imm |= ~((1 << 13) - 1); // Set bits 31:13 to 1
+    }
     return decoded;
 }
 
 DecodedInstruction decodeJType(uint32_t instruction) {
     DecodedInstruction decoded;
     decoded.opcode = instruction & 0x7F;
-    decoded.imm =0;
+    decoded.imm = 0;
     decoded.rd = (instruction >> 7) & 0x1F;
-    // Sign-extend and reorder immediate bits
-    decoded.imm |= ((int64_t)(instruction >> 31) & 1) << 20;  // decoded.imm[20] (sign bit)
-    decoded.imm |= ((int64_t)(instruction >> 21) & 0x3FF) << 1; // decoded.imm[10:1]
-    decoded.imm |= ((int64_t)(instruction >> 20) & 1) << 11;   // decoded.imm[11]
-    decoded.imm |= ((int64_t)(instruction >> 12) & 0xFF) << 12; // decoded.imm[19:12]
 
-    // Sign-extend the 21-bit decoded.immediate to 64 bits
+    // Sign-extend and reorder immediate bits
+    decoded.imm |= ((int32_t)(instruction >> 31) & 1) << 20;  // imm[20] (sign bit)
+    decoded.imm |= ((int32_t)(instruction >> 21) & 0x3FF) << 1; // imm[10:1]
+    decoded.imm |= ((int32_t)(instruction >> 20) & 1) << 11;   // imm[11]
+    decoded.imm |= ((int32_t)(instruction >> 12) & 0xFF) << 12; // imm[19:12]
+
+    // Sign-extend the 21-bit immediate to 32 bits
     // The sign bit is at bit 20 after assembly
-    if (decoded.imm & (1LL << 20)) { // If sign bit (bit 20) is 1
-        decoded.imm |= ~((1LL << 21) - 1); // Set all bits above bit 20 to 1
+    if (decoded.imm & (1 << 20)) { // If sign bit (bit 20) is 1
+        decoded.imm |= ~((1 << 21) - 1); // Set bits 31:21 to 1
     } else {
-        decoded.imm &= (1LL << 21) - 1; // Clear all bits above bit 20 (optional)
+        decoded.imm &= (1 << 21) - 1; // Clear bits 31:21 (optional)
     }
+
     return decoded;
 }
 
@@ -262,6 +276,13 @@ void Processor::fetchStage(int cycles, std::vector<std::vector<std::string>> &ve
             }
             else {if_id.pc = ex_mem.jump;
             ex_mem.jump = -1;}
+        }
+        else if (ex_mem.branchTarget != -1){
+            if(if_id.pc/4 >= numInstructions){
+                return ; //exception to be raised
+            }
+            else {if_id.pc = ex_mem.branchTarget;
+            ex_mem.branchTarget = -1;}
         }
         else if ((if_id.pc/4 + 1)  < numInstructions) if_id.pc +=4;
         else {
@@ -389,16 +410,18 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             break;
 
         case 0x13:  // I-Type (ADDI, ANDI, ORI)
-            // printf("I-Type\n");
-            // printf("rs1: %d\n", decodedInst.rs1);
-            // printf("rd: %d\n", decodedInst.rd);
-            // printf("imm: %d\n", decodedInst.imm);
+            
             id_ex.rs1 = decodedInst.rs1;
             id_ex.rd = decodedInst.rd;
             id_ex.imm = decodedInst.imm;
             id_ex.opcode = opcode;
             id_ex.funct3 = decodedInst.funct3;
             id_ex.funct7 = decodedInst.funct7;
+            if (id_ex.funct3 == 0x1 || id_ex.funct3 == 0x5){
+                id_ex.imm = decodedInst.shamt;
+            }
+             // TO BE CHECKED
+            // id_ex.shamt = decodedInst.shamt;
              // TO BE CHECKED
             id_ex.control.RegWrite = 1;
             id_ex.control.ALUOp = 2;  
@@ -460,8 +483,9 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
             id_ex.control.MemRead = 0;
             id_ex.control.MemToReg = 0;
             id_ex.control.RegWrite = 0;
+            id_ex.nop =1;
             // int zero = alu.execute(regFile.read(id_ex.rs1), regFile.read(id_ex.rs2), 6);
-            // uint64_t shiftedImm = (uint64_t)id_ex.imm << 1;
+            // uint32_t shiftedImm = (uint32_t)id_ex.imm << 1;
             // if (zero == 0) {
             //     if_id.pc -4 = if_id.pc -4 - 4 + shiftedImm;
             // }
