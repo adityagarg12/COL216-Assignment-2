@@ -27,10 +27,9 @@
 //     return 0;
 // }
 
-
-#include <fstream>  // For file I/O
-#include <sstream>  // For string parsing
-#include <stdexcept> // For error handling
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
 #include "processor.hpp"
 #include "noforwarding.hpp"
 
@@ -58,8 +57,26 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Vector to store the machine code instructions
+    // Extract the base filename using std::string operations
+    size_t lastSlash = inputFilePath.find_last_of("/\\");
+    std::string filename = (lastSlash == std::string::npos) ? inputFilePath : inputFilePath.substr(lastSlash + 1);
+
+    // Remove the extension (e.g., ".txt")
+    size_t lastDot = filename.find_last_of('.');
+    std::string baseFilename = (lastDot == std::string::npos) ? filename : filename.substr(0, lastDot);
+
+    // Construct the output file path
+    std::string outputFilePath = "../outputfiles/" + baseFilename + "_noforward_out.txt";
+
+    // Redirect stdout to the output file
+    if (!freopen(outputFilePath.c_str(), "w", stdout)) {
+        std::cerr << "Error: Could not redirect stdout to " << outputFilePath << "\n";
+        return 1;
+    }
+
+    // Vectors to store the machine code instructions and assembly instructions
     std::vector<uint32_t> instructions;
+    std::vector<std::string> assemblyInstructions;
 
     // Open the input file
     std::ifstream inputFile(inputFilePath);
@@ -76,7 +93,7 @@ int main(int argc, char* argv[]) {
 
         // Use stringstream to parse the line
         std::stringstream ss(line);
-        std::string machineCodeStr;
+        std::string machineCodeStr, assemblyInstr;
 
         // Read the first column (machine code in hex)
         ss >> machineCodeStr;
@@ -91,10 +108,21 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        // Ignore the rest of the line (instruction description)
+        // Read the rest of the line as the assembly instruction
+        std::getline(ss, assemblyInstr);
+        // Trim leading whitespace from the assembly instruction
+        size_t firstNonSpace = assemblyInstr.find_first_not_of(" \t");
+        if (firstNonSpace != std::string::npos) {
+            assemblyInstr = assemblyInstr.substr(firstNonSpace);
+        } else {
+            assemblyInstr = ""; // Handle case where the rest of the line is just whitespace
+        }
+
+        // Store the assembly instruction in the vector
+        assemblyInstructions.push_back(assemblyInstr);
     }
 
-    // Close the file
+    // Close the input file
     inputFile.close();
 
     // Check if any instructions were loaded
@@ -103,18 +131,27 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Print the loaded instructions for verification
-    std::cout << "Loaded Instructions (Machine Code):\n";
-    for (const auto& instr : instructions) {
-        std::cout << std::hex << "0x" << instr << "\n";
+    // Ensure the assembly instructions vector matches the machine code vector
+    if (instructions.size() != assemblyInstructions.size()) {
+        std::cerr << "Error: Mismatch between machine code and assembly instructions.\n";
+        return 1;
     }
-    std::cout << std::dec << "\n"; // Reset to decimal output
 
-    // Create the processor with the loaded instructions
+    // Print the loaded instructions (this will go to the output file)
+    // std::cout << "Loaded Instructions:\n";
+    // for (size_t i = 0; i < instructions.size(); ++i) {
+    //     std::cout << std::hex << "0x" << instructions[i] << "  " << assemblyInstructions[i] << "\n";
+    // }
+    // std::cout << std::dec << "\n";
+
+    // Create the processor with the loaded instructions and assembly instructions
     NoForwardingProcessor noForwardProc(instructions);
 
-    std::cout << "Running No Forwarding Processor for " << cycleCount << " cycles:\n";
-    noForwardProc.runSimulation(cycleCount);
+    // std::cout << "Running No Forwarding Processor for " << cycleCount << " cycles:\n";
+    noForwardProc.runSimulation(cycleCount, assemblyInstructions);
+
+    // Close the redirected stdout
+    fclose(stdout);
 
     return 0;
 }

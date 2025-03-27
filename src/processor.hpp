@@ -143,7 +143,7 @@ public:
     void decodeStage(int cycles,std::vector<std::vector<std::string>> &vec);
     void memoryStage(int cycles,std::vector<std::vector<std::string>> &vec);
     void writeBackStage(int cycles,std::vector<std::vector<std::string>> &vec);
-    void runSimulation(int cycles);
+    void runSimulation(int cycles, std::vector<std::string> &assembly);
 };
 
 // ****************** INSTRUCTION DECODING ******************
@@ -278,7 +278,7 @@ void Processor::fetchStage(int cycles, std::vector<std::vector<std::string>> &ve
             stallIF = false;
         }
         if(if_id.pc/4  < numInstructions){
-        vec[if_id.pc/4][cycles] = "- ";
+        vec[if_id.pc/4][cycles] = "-";
         }
         return;
     }
@@ -346,7 +346,7 @@ void Processor::decodeStage(int cycles,std::vector<std::vector<std::string>> &ve
         }
         stallIF = true; // Keep IF stalled while ID is occupied
         if (id_ex.pc/4 < numInstructions){
-        vec[id_ex.pc/4][cycles]="- ";
+        vec[id_ex.pc/4][cycles]="-";
         }
         return;
     }
@@ -635,38 +635,73 @@ void Processor::writeBackStage(int cycles,std::vector<std::vector<std::string>> 
 
 // Print the pipeline diagram
 
-void printPipelineDiagram(const std::vector<std::vector<std::string>> &vec) {
-    std::cout << "Pipeline Execution:\n";
-    // Print cycle numbers on top
+// void printPipelineDiagram(const std::vector<std::vector<std::string>> &vec,  std::vector<std::string> &assembly) {
+//     std::cout << "Pipeline Execution:\n";
+//     // Print cycle numbers on top
     
-    for (size_t i = 0; i < vec[0].size(); ++i) {
-        std::cout <<" "<< i << " ";
+//     for (size_t i = 0; i < vec[0].size(); ++i) {
+//         std::cout <<" "<< i << " ";
+//     }
+//     std::cout << "\n";
+//     // Iterate over each instruction (row-wise)
+//     for (const auto &row : vec) {
+//         // Iterate over each cycle (column-wise)
+//         for (const auto &stage : row) {
+//             std::cout << stage << " ";  // Print each stage in a cycle
+//         }
+//         std::cout << "\n";  // New line for next instruction
+//     }
+
+    
+// }
+
+void printPipelineDiagram(const std::vector<std::vector<std::string>> &vec, std::vector<std::string> &assembly) {
+    // std::cout << "Pipeline Execution:\n";
+
+    // Validate that the number of instructions matches
+    if (vec.size() != assembly.size()) {
+        std::cerr << "Error: Mismatch between pipeline stages (" << vec.size() 
+                  << ") and assembly instructions (" << assembly.size() << ").\n";
+        return;
     }
-    std::cout << "\n";
+
+    // Check if vec is empty
+    if (vec.empty() || vec[0].empty()) {
+        std::cout << "No pipeline stages to display.\n";
+        return;
+    }
+
     // Iterate over each instruction (row-wise)
-    for (const auto &row : vec) {
-        // Iterate over each cycle (column-wise)
-        for (const auto &stage : row) {
-            std::cout << stage << " ";  // Print each stage in a cycle
+    for (size_t i = 0; i < vec.size(); ++i) {
+        // Print the assembly instruction followed by a semicolon
+        std::cout << assembly[i] << ";";
+
+        // Print the pipeline stages for this instruction
+        const auto &row = vec[i];
+        for (size_t j = 0; j < row.size(); ++j) {
+            std::cout << row[j]; // Print the stage
+            if (j < row.size() - 1) {
+                std::cout << ";"; // Print semicolon between stages, but not after the last stage
+            }
         }
-        std::cout << "\n";  // New line for next instruction
+        std::cout << "\n"; // New line for the next instruction
     }
 }
 
 
-void Processor::runSimulation(int cycles) {
+void Processor::runSimulation(int cycles,std::vector<std::string> &assembly) {
 
-    std::vector<std::vector<std::string>> vec(numInstructions, std::vector<std::string>(cycles, "  "));
+    std::vector<std::vector<std::string>> vec(numInstructions, std::vector<std::string>(cycles, " "));
 
     for (int i = 0; i < cycles; i++) {
-        std::cout << "Cycle " << i << ":\n";
-        std::cout << "IF: PC=" << if_id.pc << ", Instr=" << std::hex << if_id.instruction << "\n";
-        std::cout << "ID: Instr=" << id_ex.instruction << ", rs1=" << id_ex.rs1 << ", rs2=" << id_ex.rs2 << ",rd=" << id_ex.rd << "\n";
-        std::cout << "EX: ALUResult=" << ex_mem.aluResult << "\n";
-        std::cout << "MEM: MemData=" << mem_wb.memData << "\n";
-        std::cout << "WB: rd=" << mem_wb.rd << ", value=" << (mem_wb.control.MemToReg ? mem_wb.memData : mem_wb.aluResult) << "\n";
-        if (stall) std::cout << "Stall: " << stallCycles << " cycles remaining\n";
-        std::cout << "\n";
+        // std::cout << "Cycle " << i << ":\n";
+        // std::cout << "IF: PC=" << if_id.pc << ", Instr=" << std::hex << if_id.instruction << "\n";
+        // std::cout << "ID: Instr=" << id_ex.instruction << ", rs1=" << id_ex.rs1 << ", rs2=" << id_ex.rs2 << ",rd=" << id_ex.rd << "\n";
+        // std::cout << "EX: ALUResult=" << ex_mem.aluResult << "\n";
+        // std::cout << "MEM: MemData=" << mem_wb.memData << "\n";
+        // std::cout << "WB: rd=" << mem_wb.rd << ", value=" << (mem_wb.control.MemToReg ? mem_wb.memData : mem_wb.aluResult) << "\n";
+        // if (stall) std::cout << "Stall: " << stallCycles << " cycles remaining\n";
+        // std::cout << "\n";
        
 
         writeBackStage(i,vec);
@@ -679,7 +714,7 @@ void Processor::runSimulation(int cycles) {
        
     }
 
-    printPipelineDiagram(vec);
+    printPipelineDiagram(vec,assembly);
 
 }
 
